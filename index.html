@@ -1,0 +1,2582 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>퇴사 시뮬레이터</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-primary: #0a0a1a;
+    --bg-card: #16213e;
+    --bg-header: #1a1a2e;
+    --accent-red: #e94560;
+    --accent-blue: #0f3460;
+    --text-primary: #eaeaea;
+    --text-sub: #a0a0b0;
+    --stress-low: #00b894;
+    --stress-mid: #fdcb6e;
+    --stress-high: #e17055;
+    --stress-max: #e94560;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: var(--bg-primary);
+    font-family: 'Noto Sans KR', sans-serif;
+    color: var(--text-primary);
+    overflow: hidden;
+  }
+
+  #app {
+    width: 100%;
+    max-width: 430px;
+    height: 100dvh;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ── 헤더 ── */
+  #header {
+    background: var(--bg-header);
+    padding: 12px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #2a2a4e;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+
+  #header .week-badge {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent-red);
+    background: rgba(233,69,96,0.15);
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(233,69,96,0.3);
+  }
+
+  #header .money-badge {
+    font-size: 13px;
+    font-weight: 700;
+    color: #55efc4;
+    background: rgba(85,239,196,0.1);
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(85,239,196,0.3);
+  }
+
+  #header .title-text {
+    font-size: 15px;
+    font-weight: 900;
+    letter-spacing: -0.3px;
+  }
+
+  /* ── 메인 스크롤 영역 ── */
+  #main {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 14px 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #main::-webkit-scrollbar { width: 0; }
+
+  /* ── 퇴사각도기 ── */
+  #gauge-section {
+    background: var(--bg-card);
+    border-radius: 18px;
+    padding: 16px 14px 12px;
+    border: 1px solid #2a2a4e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #gauge-section .gauge-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-sub);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  #gauge-svg {
+    width: 240px;
+    height: 130px;
+    overflow: visible;
+  }
+
+  #gauge-angle-text {
+    font-size: 18px;
+    font-weight: 900;
+    text-align: center;
+    margin-top: 2px;
+    transition: color 0.5s;
+  }
+
+  /* ── 스탯 바 ── */
+  #stats-section {
+    background: var(--bg-card);
+    border-radius: 18px;
+    padding: 14px 16px;
+    border: 1px solid #2a2a4e;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .stat-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .stat-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-sub);
+    letter-spacing: 0.5px;
+  }
+
+  .stat-value {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .stat-bar-bg {
+    width: 100%;
+    height: 7px;
+    background: #1a1a3e;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .stat-bar-fill {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  #bar-stress .stat-bar-fill { background: linear-gradient(90deg, var(--stress-low), var(--stress-mid), var(--stress-max)); }
+  #bar-sanity .stat-bar-fill { background: linear-gradient(90deg, #6c5ce7, #a29bfe); }
+  #bar-reputation .stat-bar-fill { background: linear-gradient(90deg, #0984e3, #74b9ff); }
+
+  /* ── 이벤트 카드 ── */
+  #event-card {
+    background: var(--bg-card);
+    border-radius: 18px;
+    padding: 18px 16px;
+    border: 1px solid #2a2a4e;
+    min-height: 160px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: opacity 0.35s ease, transform 0.35s ease;
+  }
+
+  #event-card.fade-out {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  #event-card.fade-in {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  .category-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+    align-self: flex-start;
+  }
+
+  .cat-BOSS     { background: rgba(233,69,96,0.2); color: #e94560; border: 1px solid rgba(233,69,96,0.4); }
+  .cat-CRISIS   { background: rgba(225,112,85,0.2); color: #e17055; border: 1px solid rgba(225,112,85,0.4); }
+  .cat-PEER     { background: rgba(108,92,231,0.2); color: #a29bfe; border: 1px solid rgba(108,92,231,0.4); }
+  .cat-WORK     { background: rgba(9,132,227,0.2); color: #74b9ff; border: 1px solid rgba(9,132,227,0.4); }
+  .cat-CULTURE  { background: rgba(253,203,110,0.2); color: #fdcb6e; border: 1px solid rgba(253,203,110,0.4); }
+  .cat-HEAL     { background: rgba(0,184,148,0.2); color: #00b894; border: 1px solid rgba(0,184,148,0.4); }
+  .cat-PAYDAY   { background: rgba(85,239,196,0.2); color: #55efc4; border: 1px solid rgba(85,239,196,0.4); }
+
+  #event-title {
+    font-size: 17px;
+    font-weight: 900;
+    line-height: 1.3;
+    letter-spacing: -0.3px;
+  }
+
+  #event-text {
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.7;
+    color: var(--text-sub);
+    white-space: pre-line;
+  }
+
+  /* ── 결과 텍스트 ── */
+  #result-card {
+    background: rgba(0,184,148,0.08);
+    border: 1px solid rgba(0,184,148,0.25);
+    border-radius: 14px;
+    padding: 13px 15px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #55efc4;
+    line-height: 1.6;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  #result-card.show {
+    display: block;
+  }
+
+  #result-card.visible {
+    opacity: 1;
+  }
+
+  /* ── 선택지 버튼 ── */
+  #choices-section {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+    padding: 0 16px 16px;
+  }
+
+  .choice-btn {
+    flex: 1;
+    padding: 14px 10px;
+    border-radius: 14px;
+    border: none;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.5;
+    cursor: pointer;
+    transition: transform 0.15s, opacity 0.15s, box-shadow 0.15s;
+    word-break: keep-all;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .choice-btn:active {
+    transform: scale(0.96);
+  }
+
+  .choice-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  #btn-a {
+    background: linear-gradient(135deg, #e94560, #c0392b);
+    color: white;
+    box-shadow: 0 4px 18px rgba(233,69,96,0.35);
+  }
+
+  #btn-b {
+    background: linear-gradient(135deg, #0f3460, #1a4a8a);
+    color: white;
+    box-shadow: 0 4px 18px rgba(15,52,96,0.5);
+    border: 1px solid #2a5aa0;
+  }
+
+  /* ── 다음 턴 버튼 ── */
+  #next-btn {
+    display: none;
+    margin: 0 16px 16px;
+    padding: 15px;
+    background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 18px rgba(108,92,231,0.4);
+  }
+
+  #next-btn:active { transform: scale(0.97); }
+
+  /* ── 월급날 배너 ── */
+  #payday-banner {
+    display: none;
+    background: linear-gradient(135deg, #00b894, #00cec9);
+    color: white;
+    text-align: center;
+    padding: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 12px;
+    margin: 0 16px;
+    flex-shrink: 0;
+    animation: bannerPulse 0.5s ease;
+  }
+
+  @keyframes bannerPulse {
+    0% { transform: scale(0.95); opacity: 0; }
+    60% { transform: scale(1.03); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ── 엔딩 화면 ── */
+  #ending-screen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 24px;
+    text-align: center;
+    gap: 16px;
+    animation: endingFadeIn 0.8s ease;
+  }
+
+  @keyframes endingFadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  #ending-screen.show { display: flex; }
+
+  .ending-INSTANT  { background: radial-gradient(ellipse at center, #3a0015 0%, #0a0005 100%); }
+  .ending-BURNOUT  { background: radial-gradient(ellipse at center, #1a1a1a 0%, #050505 100%); filter: saturate(0.1); }
+  .ending-PLANNED  { background: radial-gradient(ellipse at center, #003020 0%, #0a1a10 100%); }
+  .ending-SURVIVE  { background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a1a 100%); }
+  .ending-PROMOTION { background: radial-gradient(ellipse at center, #2a1a00 0%, #0a0800 100%); }
+
+  #ending-icon {
+    font-size: 64px;
+    line-height: 1;
+    animation: iconBounce 0.6s ease 0.3s both;
+  }
+
+  @keyframes iconBounce {
+    0% { transform: scale(0); opacity: 0; }
+    70% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  #ending-type {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    opacity: 0.6;
+    text-transform: uppercase;
+  }
+
+  #ending-title {
+    font-size: 24px;
+    font-weight: 900;
+    line-height: 1.3;
+    letter-spacing: -0.5px;
+  }
+
+  #ending-text {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.8;
+    color: var(--text-sub);
+    max-width: 320px;
+  }
+
+  #ending-stats {
+    background: rgba(255,255,255,0.06);
+    border-radius: 14px;
+    padding: 14px 20px;
+    display: flex;
+    gap: 20px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .ending-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .ending-stat-val {
+    font-size: 22px;
+    font-weight: 900;
+  }
+
+  .ending-stat-lbl {
+    font-size: 10px;
+    color: var(--text-sub);
+    font-weight: 500;
+  }
+
+  #share-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: var(--text-primary);
+    padding: 13px 28px;
+    border-radius: 30px;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+  }
+
+  #share-btn:active { transform: scale(0.97); }
+  #share-btn:hover  { background: rgba(255,255,255,0.18); }
+
+  #retry-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-sub);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 4px 8px;
+  }
+
+  /* ── 시작 화면 ── */
+  #start-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: radial-gradient(ellipse at 50% 30%, #1a1a3e 0%, #0a0a1a 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px 28px;
+    gap: 14px;
+  }
+
+  #start-screen .logo {
+    font-size: 56px;
+    line-height: 1;
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  #start-screen h1 {
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: -1px;
+    line-height: 1.2;
+  }
+
+  #start-screen .sub {
+    font-size: 14px;
+    color: var(--text-sub);
+    line-height: 1.7;
+    max-width: 280px;
+  }
+
+  #start-screen .tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  #start-screen .tag {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: var(--text-sub);
+    font-weight: 500;
+  }
+
+  #start-btn {
+    margin-top: 10px;
+    padding: 16px 50px;
+    background: linear-gradient(135deg, var(--accent-red), #c0392b);
+    color: white;
+    border: none;
+    border-radius: 30px;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 16px;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 6px 25px rgba(233,69,96,0.45);
+    transition: transform 0.15s, box-shadow 0.15s;
+    letter-spacing: -0.3px;
+  }
+
+  #start-btn:active { transform: scale(0.97); }
+
+  #start-screen .disclaimer {
+    font-size: 10px;
+    color: rgba(160,160,176,0.5);
+    line-height: 1.6;
+    max-width: 260px;
+  }
+
+  /* ── 파티클 (승진 엔딩) ── */
+  #particle-canvas {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 99;
+    display: none;
+  }
+
+  /* ── 진동 (즉시 퇴사) ── */
+  @keyframes shake {
+    0%,100%  { transform: translateX(0); }
+    10%,50%  { transform: translateX(-8px) rotate(-1deg); }
+    30%,70%  { transform: translateX(8px) rotate(1deg); }
+    90%      { transform: translateX(-4px); }
+  }
+
+  .shaking { animation: shake 0.5s ease 3; }
+
+  /* ── 흑백 (번아웃) ── */
+  @keyframes grayFade {
+    from { filter: saturate(1); }
+    to   { filter: saturate(0) brightness(0.7); }
+  }
+
+  .burning-out { animation: grayFade 1.5s ease forwards; }
+
+  /* ── 게이지 바늘 진동 ── */
+  @keyframes needleShake {
+    0%,100% { transform-origin: 120px 120px; transform: rotate(var(--needle-deg)) translateY(0); }
+    25%     { transform-origin: 120px 120px; transform: rotate(calc(var(--needle-deg) + 5deg)) translateY(0); }
+    75%     { transform-origin: 120px 120px; transform: rotate(calc(var(--needle-deg) - 5deg)) translateY(0); }
+  }
+
+  /* ── 스트레스 위험 글로우 ── */
+  .stress-danger #gauge-svg {
+    filter: drop-shadow(0 0 8px rgba(233,69,96,0.7));
+    animation: glowPulse 1s ease-in-out infinite;
+  }
+
+  @keyframes glowPulse {
+    0%,100% { filter: drop-shadow(0 0 4px rgba(233,69,96,0.5)); }
+    50%     { filter: drop-shadow(0 0 14px rgba(233,69,96,1)); }
+  }
+
+  /* ── 토스트 메시지 ── */
+  #toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(30,30,60,0.95);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 25px;
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    z-index: 999;
+    white-space: nowrap;
+    backdrop-filter: blur(8px);
+  }
+
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ── 스탯 변화 플로팅 숫자 ── */
+  .float-num {
+    position: fixed;
+    font-size: 14px;
+    font-weight: 900;
+    pointer-events: none;
+    z-index: 50;
+    animation: floatUp 1.2s ease forwards;
+  }
+
+  @keyframes floatUp {
+    0%   { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-40px) scale(0.8); }
+  }
+
+  /* ── 주차 진행 바 ── */
+  #week-progress {
+    height: 3px;
+    background: #1a1a3e;
+    flex-shrink: 0;
+  }
+
+  #week-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-red), #ff6b9d);
+    transition: width 0.5s ease;
+  }
+
+  /* ── 캐릭터 + 이벤트 카드 레이아웃 ── */
+  #event-section {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  #character-wrapper {
+    width: 100px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    align-self: flex-end;
+  }
+
+  #character-svg {
+    width: 100px;
+    height: 180px;
+    overflow: visible;
+    display: block;
+  }
+
+  #event-card {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* ── 말풍선 ── */
+  #speech-bubble {
+    position: absolute;
+    top: -44px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    color: #1a1a2e;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 5px 8px;
+    border-radius: 8px;
+    white-space: nowrap;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 20;
+    line-height: 1.4;
+    text-align: center;
+    word-break: keep-all;
+  }
+
+  #speech-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #fff;
+  }
+
+  #speech-bubble.visible {
+    opacity: 1;
+  }
+
+  /* ── 캐릭터 애니메이션 ── */
+  @keyframes charRecoil {
+    0%   { transform: translateX(0); }
+    30%  { transform: translateX(-7px); }
+    100% { transform: translateX(0); }
+  }
+
+  @keyframes charJump {
+    0%   { transform: translateY(0); }
+    35%  { transform: translateY(-10px); }
+    65%  { transform: translateY(-10px); }
+    100% { transform: translateY(0); }
+  }
+
+  @keyframes charShake {
+    0%,100% { transform: translateX(0) rotate(0deg); }
+    15%     { transform: translateX(-4px) rotate(-2deg); }
+    35%     { transform: translateX(4px) rotate(2deg); }
+    55%     { transform: translateX(-4px) rotate(-2deg); }
+    75%     { transform: translateX(4px) rotate(2deg); }
+  }
+
+  #character-svg.recoil  { animation: charRecoil 0.45s ease; }
+  #character-svg.jump    { animation: charJump   0.5s ease; }
+  #character-svg.desperate-shake { animation: charShake 0.6s ease infinite; }
+</style>
+</head>
+<body>
+
+<!-- 시작 화면 -->
+<div id="start-screen">
+  <div class="logo">📋</div>
+  <h1>퇴사 시뮬레이터</h1>
+  <p class="sub">당신의 퇴사각도기는 몇 도입니까?<br>30일을 버텨보세요.</p>
+  <div class="tags">
+    <span class="tag">🏢 직장인 공감</span>
+    <span class="tag">📐 퇴사각도기</span>
+    <span class="tag">😮‍💨 100가지 이벤트</span>
+    <span class="tag">🏆 5가지 엔딩</span>
+  </div>
+  <button id="start-btn" onclick="startGame()">게임 시작</button>
+  <p class="disclaimer">※ 이 게임은 직장 생활을 풍자한 시뮬레이션입니다.<br>실제 퇴사를 권장하지 않습니다(퇴사는 개인의 선택입니다).</p>
+</div>
+
+<!-- 메인 앱 -->
+<div id="app">
+  <div id="header">
+    <div class="week-badge" id="week-display">1일차</div>
+    <div class="title-text">📐 퇴사각도기</div>
+    <div class="money-badge" id="money-display">💰 0만원</div>
+  </div>
+  <div id="week-progress"><div id="week-progress-fill" style="width:8.33%"></div></div>
+
+  <div id="main">
+    <!-- 퇴사각도기 -->
+    <div id="gauge-section">
+      <div class="gauge-label">퇴사각도기</div>
+      <svg id="gauge-svg" viewBox="0 0 240 130">
+        <!-- 배경 반원 트랙 -->
+        <defs>
+          <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%"   stop-color="#00b894"/>
+            <stop offset="40%"  stop-color="#fdcb6e"/>
+            <stop offset="70%"  stop-color="#e17055"/>
+            <stop offset="100%" stop-color="#e94560"/>
+          </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+            <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+
+        <!-- 눈금 -->
+        <g id="ticks"></g>
+
+        <!-- 배경 호 -->
+        <path d="M 20 120 A 100 100 0 0 1 220 120" fill="none" stroke="#2a2a4e" stroke-width="16" stroke-linecap="round"/>
+
+        <!-- 컬러 게이지 호 -->
+        <path id="gauge-arc" d="M 20 120 A 100 100 0 0 1 20 120" fill="none" stroke="url(#gaugeGrad)" stroke-width="16" stroke-linecap="round" filter="url(#glow)"/>
+
+        <!-- 중심 -->
+        <circle cx="120" cy="120" r="6" fill="#eaeaea"/>
+        <circle cx="120" cy="120" r="3" fill="#0a0a1a"/>
+
+        <!-- 바늘 -->
+        <line id="gauge-needle" x1="120" y1="120" x2="120" y2="28" stroke="#eaeaea" stroke-width="2.5" stroke-linecap="round" style="transform-origin:120px 120px; transform:rotate(-90deg); transition: transform 0.7s cubic-bezier(0.34,1.2,0.64,1);"/>
+
+        <!-- 레이블 -->
+        <text x="14" y="135" fill="#00b894" font-size="9" font-weight="700" font-family="Noto Sans KR">0°</text>
+        <text x="108" y="20" fill="#fdcb6e" font-size="9" font-weight="700" font-family="Noto Sans KR" text-anchor="middle">90°</text>
+        <text x="210" y="135" fill="#e94560" font-size="9" font-weight="700" font-family="Noto Sans KR" text-anchor="end">180°</text>
+      </svg>
+      <div id="gauge-angle-text">0° — 여유로움</div>
+    </div>
+
+    <!-- 스탯 바 -->
+    <div id="stats-section">
+      <div class="stat-row" id="bar-stress">
+        <div class="stat-header">
+          <span class="stat-name">😤 스트레스</span>
+          <span class="stat-value" id="val-stress">0</span>
+        </div>
+        <div class="stat-bar-bg"><div class="stat-bar-fill" id="fill-stress" style="width:0%"></div></div>
+      </div>
+      <div class="stat-row" id="bar-sanity">
+        <div class="stat-header">
+          <span class="stat-name">🧠 정신력</span>
+          <span class="stat-value" id="val-sanity">80</span>
+        </div>
+        <div class="stat-bar-bg"><div class="stat-bar-fill" id="fill-sanity" style="width:80%"></div></div>
+      </div>
+      <div class="stat-row" id="bar-reputation">
+        <div class="stat-header">
+          <span class="stat-name">⭐ 평판</span>
+          <span class="stat-value" id="val-reputation">50</span>
+        </div>
+        <div class="stat-bar-bg"><div class="stat-bar-fill" id="fill-reputation" style="width:50%"></div></div>
+      </div>
+    </div>
+
+    <!-- 이벤트 카드 + 캐릭터 -->
+    <div id="event-section">
+      <!-- 캐릭터 -->
+      <div id="character-wrapper">
+        <div id="speech-bubble"></div>
+        <svg id="character-svg" viewBox="0 0 100 180" xmlns="http://www.w3.org/2000/svg">
+
+          <!-- ────── 몸 (정장) ────── -->
+          <!-- 상체 재킷 -->
+          <rect x="28" y="80" width="44" height="52" rx="6" fill="#2c3e70"/>
+          <!-- 흰 셔츠 안감 -->
+          <rect x="42" y="82" width="16" height="46" fill="#eaeaea"/>
+          <!-- 넥타이 -->
+          <polygon points="50,85 53,95 50,108 47,95" fill="#e94560"/>
+          <!-- 재킷 왼쪽 라펠 -->
+          <polygon points="28,80 42,80 42,100 28,92" fill="#263060"/>
+          <!-- 재킷 오른쪽 라펠 -->
+          <polygon points="72,80 58,80 58,100 72,92" fill="#263060"/>
+          <!-- 왼팔 -->
+          <rect x="14" y="82" width="16" height="36" rx="6" fill="#2c3e70"/>
+          <!-- 오른팔 -->
+          <rect x="70" y="82" width="16" height="36" rx="6" fill="#2c3e70"/>
+          <!-- 왼손 -->
+          <ellipse cx="22" cy="120" rx="7" ry="8" fill="#f0c27f"/>
+          <!-- 오른손 -->
+          <ellipse cx="78" cy="120" rx="7" ry="8" fill="#f0c27f"/>
+
+          <!-- ────── 하체 ────── -->
+          <!-- 바지 왼쪽 -->
+          <rect x="32" y="130" width="16" height="38" rx="4" fill="#1a2346"/>
+          <!-- 바지 오른쪽 -->
+          <rect x="52" y="130" width="16" height="38" rx="4" fill="#1a2346"/>
+          <!-- 구두 왼쪽 -->
+          <ellipse cx="40" cy="170" rx="10" ry="5" fill="#1a1a1a"/>
+          <!-- 구두 오른쪽 -->
+          <ellipse cx="60" cy="170" rx="10" ry="5" fill="#1a1a1a"/>
+          <!-- 구두 앞코 왼쪽 -->
+          <ellipse cx="34" cy="170" rx="4" ry="3.5" fill="#111"/>
+          <!-- 구두 앞코 오른쪽 -->
+          <ellipse cx="54" cy="170" rx="4" ry="3.5" fill="#111"/>
+
+          <!-- ────── 목 ────── -->
+          <rect x="44" y="68" width="12" height="14" rx="4" fill="#f0c27f"/>
+
+          <!-- ────── 머리 ────── -->
+          <ellipse cx="50" cy="52" rx="24" ry="22" fill="#f0c27f"/>
+          <!-- 머리카락 -->
+          <ellipse cx="50" cy="32" rx="24" ry="10" fill="#3d2b1a"/>
+          <rect x="26" y="32" width="48" height="12" rx="2" fill="#3d2b1a"/>
+
+          <!-- ────── 표정 그룹들 ────── -->
+
+          <!-- CALM 표정 (0~30): 기본 미소 -->
+          <g id="face-calm">
+            <!-- 눈 왼쪽 -->
+            <ellipse cx="41" cy="50" rx="3.5" ry="4" fill="#2c1a0a"/>
+            <!-- 눈 오른쪽 -->
+            <ellipse cx="59" cy="50" rx="3.5" ry="4" fill="#2c1a0a"/>
+            <!-- 눈 하이라이트 왼쪽 -->
+            <circle cx="42.5" cy="48.5" r="1.2" fill="white"/>
+            <!-- 눈 하이라이트 오른쪽 -->
+            <circle cx="60.5" cy="48.5" r="1.2" fill="white"/>
+            <!-- 미소 -->
+            <path d="M 42 60 Q 50 66 58 60" stroke="#2c1a0a" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <!-- 볼터치 왼쪽 -->
+            <ellipse cx="37" cy="59" rx="4" ry="2.5" fill="rgba(240,100,80,0.25)"/>
+            <!-- 볼터치 오른쪽 -->
+            <ellipse cx="63" cy="59" rx="4" ry="2.5" fill="rgba(240,100,80,0.25)"/>
+          </g>
+
+          <!-- TIRED 표정 (31~60): 무표정, 처진 눈 -->
+          <g id="face-tired" display="none">
+            <!-- 눈꺼풀 왼쪽 -->
+            <ellipse cx="41" cy="50" rx="3.5" ry="4" fill="#2c1a0a"/>
+            <rect x="37.5" y="46" width="7" height="3.5" rx="1" fill="#f0c27f"/>
+            <!-- 눈꺼풀 오른쪽 -->
+            <ellipse cx="59" cy="50" rx="3.5" ry="4" fill="#2c1a0a"/>
+            <rect x="55.5" y="46" width="7" height="3.5" rx="1" fill="#f0c27f"/>
+            <!-- 무표정 입 -->
+            <line x1="44" y1="62" x2="56" y2="62" stroke="#2c1a0a" stroke-width="2" stroke-linecap="round"/>
+          </g>
+
+          <!-- STRESSED 표정 (61~80): 땀방울, 찡그린 눈썹 -->
+          <g id="face-stressed" display="none">
+            <!-- 찡그린 눈썹 왼쪽 -->
+            <path d="M 36 44 Q 41 41 45 43" stroke="#2c1a0a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <!-- 찡그린 눈썹 오른쪽 -->
+            <path d="M 55 43 Q 59 41 64 44" stroke="#2c1a0a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <!-- 눈 왼쪽 (가늘게) -->
+            <ellipse cx="41" cy="51" rx="3.5" ry="2.5" fill="#2c1a0a"/>
+            <!-- 눈 오른쪽 (가늘게) -->
+            <ellipse cx="59" cy="51" rx="3.5" ry="2.5" fill="#2c1a0a"/>
+            <!-- 일자 입 -->
+            <path d="M 44 63 Q 50 61 56 63" stroke="#2c1a0a" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <!-- 땀방울 -->
+            <ellipse cx="66" cy="43" rx="2.5" ry="3.5" fill="#74b9ff" opacity="0.8"/>
+            <path d="M 65 40 Q 66 37 67 40" fill="#74b9ff" opacity="0.8"/>
+          </g>
+
+          <!-- DESPERATE 표정 (81~100): 빙글 눈, 흑백 필터 -->
+          <g id="face-desperate" display="none">
+            <!-- 빙글빙글 눈 왼쪽 -->
+            <circle cx="41" cy="50" r="5" fill="white" stroke="#2c1a0a" stroke-width="1.5"/>
+            <path d="M 41 47 Q 44 48 43 51 Q 42 54 39 53 Q 37 51 38 49 Q 39 47 41 47" fill="#2c1a0a" stroke="none"/>
+            <!-- 빙글빙글 눈 오른쪽 -->
+            <circle cx="59" cy="50" r="5" fill="white" stroke="#2c1a0a" stroke-width="1.5"/>
+            <path d="M 59 47 Q 62 48 61 51 Q 60 54 57 53 Q 55 51 56 49 Q 57 47 59 47" fill="#2c1a0a" stroke="none"/>
+            <!-- 물결 입 -->
+            <path d="M 42 63 Q 46 67 50 63 Q 54 59 58 63" stroke="#2c1a0a" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <!-- 땀방울 많이 -->
+            <ellipse cx="66" cy="40" rx="2" ry="3" fill="#74b9ff" opacity="0.9"/>
+            <ellipse cx="70" cy="46" rx="1.5" ry="2.5" fill="#74b9ff" opacity="0.9"/>
+            <ellipse cx="31" cy="42" rx="2" ry="3" fill="#74b9ff" opacity="0.9"/>
+          </g>
+
+          <!-- 흑백 오버레이 (DESPERATE 단계에서만 활성화) -->
+          <rect id="gray-overlay" x="0" y="0" width="100" height="180" fill="white" opacity="0" rx="0" pointer-events="none"/>
+
+        </svg>
+      </div>
+
+      <!-- 이벤트 카드 -->
+      <div id="event-card">
+        <span class="category-badge cat-WORK" id="event-cat">WORK</span>
+        <div id="event-title">이벤트 로딩 중...</div>
+        <div id="event-text">잠시 후 이벤트가 시작됩니다.</div>
+      </div>
+    </div>
+
+    <!-- 결과 카드 -->
+    <div id="result-card"></div>
+  </div>
+
+  <!-- 월급날 배너 -->
+  <div id="payday-banner">💸 월급날! +500만원 / 스트레스 -15</div>
+
+  <!-- 선택지 버튼 -->
+  <div id="choices-section">
+    <button class="choice-btn" id="btn-a" onclick="choose(0)">선택 A</button>
+    <button class="choice-btn" id="btn-b" onclick="choose(1)">선택 B</button>
+  </div>
+
+  <!-- 다음 턴 버튼 -->
+  <button id="next-btn" onclick="nextTurn()">다음 날로 → </button>
+</div>
+
+<!-- 엔딩 화면 -->
+<div id="ending-screen">
+  <div id="ending-icon">😮</div>
+  <div id="ending-type">ENDING</div>
+  <div id="ending-title">엔딩 제목</div>
+  <div id="ending-text">엔딩 내용</div>
+  <div id="ending-stats">
+    <div class="ending-stat">
+      <span class="ending-stat-val" id="end-stress" style="color:#e94560">0°</span>
+      <span class="ending-stat-lbl">퇴사각도</span>
+    </div>
+    <div class="ending-stat">
+      <span class="ending-stat-val" id="end-week" style="color:#a29bfe">0일</span>
+      <span class="ending-stat-lbl">버틴 기간</span>
+    </div>
+    <div class="ending-stat">
+      <span class="ending-stat-val" id="end-money" style="color:#55efc4">0만</span>
+      <span class="ending-stat-lbl">잔고</span>
+    </div>
+  </div>
+  <button id="share-btn" onclick="shareResult()">결과 공유 📤</button>
+  <button id="retry-btn" onclick="retryGame()">다시 하기</button>
+</div>
+
+<!-- 파티클 캔버스 (승진 엔딩) -->
+<canvas id="particle-canvas"></canvas>
+
+<!-- 토스트 -->
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────
+let state = {
+  stress: 0,
+  money: 0,
+  sanity: 80,
+  reputation: 50,
+  day: 1,
+  gameOver: false,
+  endingKey: null
+};
+
+let currentEvent = null;
+let usedEventIds = [];
+let choiceMade = false;
+let paydayThisTurn = false;
+
+// ─────────────────────────────────────────────
+//  EVENTS DATA
+// ─────────────────────────────────────────────
+const events = [
+  {
+    id: "E001", category: "BOSS", weight: 25,
+    title: "퇴근 5분 전 폭탄",
+    text: "오후 5시 55분. 가방을 챙기려는 순간\n팀장이 다가옵니다.\n\"이거 오늘 안으로 끝내줘. 급한 거야.\"\n서류 더미가 책상에 쌓입니다.",
+    choices: [
+      { label: "\"알겠습니다...\" (수락)", stress: 9, sanity: -5, money: -3, reputation: 0, result: "결국 밤 11시에 퇴근했습니다. 택시비 3만원." },
+      { label: "\"오늘은 선약이 있어서요.\" (거절)", stress: 4, sanity: 0, money: 0, reputation: -8, result: "팀장 표정이 굳었습니다. 내일이 걱정됩니다." }
+    ]
+  },
+  {
+    id: "E002", category: "BOSS", weight: 25,
+    title: "꼰대 훈계 풀코스",
+    text: "\"저 때는 말이야, 밥도 굶어가면서 일했어.\n요즘 애들은 너무 나약해.\"\n10분째 훈계가 이어집니다.",
+    choices: [
+      { label: "\"네, 명심하겠습니다.\" (참기)", stress: 10, sanity: -8, money: 0, reputation: 0, result: "고개를 끄덕였지만 속에서 불이 납니다." },
+      { label: "(속으로) '일기에 적어야지'", stress: 5, sanity: -3, money: 0, reputation: 0, result: "표정 관리 성공. 오늘의 소소한 승리." }
+    ]
+  },
+  {
+    id: "E003", category: "CRISIS", weight: 10,
+    title: "구조조정 소문",
+    text: "점심시간, 화장실에서 들려오는 목소리.\n\"이번에 우리 팀도 포함됐대...\"\n심장이 쿵 내려앉습니다.",
+    choices: [
+      { label: "모른 척하고 자리로 돌아간다", stress: 8, sanity: -6, money: 0, reputation: 0, result: "일이 손에 잡히지 않습니다. 이력서를 켜봅니다." },
+      { label: "팀장에게 직접 물어본다", stress: 4, sanity: 0, money: 0, reputation: 5, result: "팀장이 웃으며 부인했습니다. 일단 안심." }
+    ]
+  },
+  {
+    id: "E004", category: "PEER", weight: 20,
+    title: "억울한 오해",
+    text: "\"저번 프로젝트 망친 거 너 때문이잖아.\"\n동료 박대리가 공개적으로 말합니다.\n사실이 아닙니다.",
+    choices: [
+      { label: "\"제 잘못이 아니에요.\" (반박)", stress: 5, sanity: 0, money: 0, reputation: 8, result: "증거를 제시했습니다. 박대리가 멋쩍어합니다." },
+      { label: "\"...죄송합니다.\" (그냥 덮기)", stress: 8, sanity: -6, money: 0, reputation: 0, result: "억울함이 가슴에 쌓입니다." }
+    ]
+  },
+  {
+    id: "E005", category: "BOSS", weight: 25,
+    title: "폭언 및 인격모욕",
+    text: "\"너는 정말 왜 자꾸 이런 실수를 해?\n이것도 못 하면 여기서 뭘 할 수 있어?\"\n사무실이 조용해집니다.",
+    choices: [
+      { label: "\"다음엔 더 잘 하겠습니다.\" (인내)", stress: 10, sanity: -10, money: 0, reputation: 0, result: "퇴사각도기 바늘이 격렬하게 흔들립니다." },
+      { label: "화장실에서 5분간 심호흡", stress: 7, sanity: -5, money: -1, reputation: 0, result: "눈물이 날 것 같지만 참았습니다. 오늘 하루만 더." }
+    ]
+  },
+  {
+    id: "E006", category: "WORK", weight: 25,
+    title: "야근 일상화",
+    text: "이번 주 5일 연속 야근입니다.\n퇴근 시간은 이미 의미를 잃었습니다.\n몸이 보내는 신호가 느껴집니다.",
+    choices: [
+      { label: "그냥 버틴다 (야근 수당 +5만)", stress: 9, sanity: -8, money: 5, reputation: 0, result: "통장은 채워졌지만 몸이 버팁니다." },
+      { label: "살짝 일찍 빠진다", stress: 3, sanity: 0, money: 0, reputation: -5, result: "오늘은 10시에 퇴근했습니다. 그래도 야근이지만." }
+    ]
+  },
+  {
+    id: "E007", category: "CULTURE", weight: 15,
+    title: "금요일 기습 요청",
+    text: "\"이거 월요일 아침까지 부탁해.\"\n오후 4시 30분의 금요일.\n주말이 사라지는 소리가 들립니다.",
+    choices: [
+      { label: "주말 반납하고 완성", stress: 8, sanity: -7, money: 0, reputation: 3, result: "월요일 아침, 팀장은 '수고했어'라고만 합니다." },
+      { label: "\"오전 중으로 드릴게요.\" (협상)", stress: 4, sanity: 0, money: 0, reputation: -3, result: "팀장이 고개를 끄덕입니다. 협상 성공." }
+    ]
+  },
+  {
+    id: "E008", category: "CULTURE", weight: 15,
+    title: "강제 회식",
+    text: "\"오늘 팀 회식이야. 다들 참석하지?\"\n팀장의 '참석하지?'는 질문이 아닙니다.",
+    choices: [
+      { label: "웃으면서 참석 (2차까지)", stress: 8, sanity: -5, money: -2, reputation: 5, result: "귀가 시간 자정. 내일도 출근해야 합니다." },
+      { label: "\"몸이 좀 안 좋아서요...\"", stress: 3, sanity: 3, money: 0, reputation: -8, result: "팀장이 아쉽다고 합니다. 내일이 불안합니다." }
+    ]
+  },
+  {
+    id: "E009", category: "PEER", weight: 20,
+    title: "동료 연쇄 퇴사",
+    text: "이번 달에만 3명이 나갔습니다.\n\"저도 사실 생각 중이에요\"라는 말이\n귀에서 떠나지 않습니다.",
+    choices: [
+      { label: "\"나도 슬슬...\" (이직 고민)", stress: 7, sanity: -5, money: 0, reputation: 0, result: "퇴근 후 잡코리아를 켰습니다." },
+      { label: "\"아직은 버틸 수 있어\"", stress: 3, sanity: 3, money: 0, reputation: 0, result: "오늘은 긍정적으로 생각하기로 했습니다." }
+    ]
+  },
+  {
+    id: "E010", category: "WORK", weight: 25,
+    title: "업무 차별",
+    text: "불화 이후, 좋은 프로젝트는 항상\n다른 팀원에게 갑니다.\n나는 단순 잡무만 맡게 됩니다.",
+    choices: [
+      { label: "팀장에게 면담 요청", stress: 5, sanity: 0, money: 0, reputation: 8, result: "팀장이 상황을 인정했습니다. 조금 나아질까요?" },
+      { label: "조용히 참으며 이직 준비", stress: 8, sanity: -5, money: 0, reputation: 0, result: "퇴근 후 포트폴리오를 정리했습니다." }
+    ]
+  },
+  {
+    id: "E011", category: "CULTURE", weight: 15,
+    title: "주말 카톡 폭탄",
+    text: "토요일 오전 10시.\n카톡 알림이 울립니다.\n[팀장] 이거 확인해줘. 급해.\n주말이 무너집니다.",
+    choices: [
+      { label: "즉시 답장하고 처리", stress: 8, sanity: -7, money: 0, reputation: 3, result: "주말 오전 2시간을 회사에 헌납했습니다." },
+      { label: "읽씹 (나중에 확인)", stress: 4, sanity: 0, money: 0, reputation: -5, result: "월요일 출근이 두렵습니다. 그래도 주말은 지켰습니다." }
+    ]
+  },
+  {
+    id: "E012", category: "CULTURE", weight: 15,
+    title: "연차 눈치 지옥",
+    text: "\"연차 쓰고 싶은데요.\"\n팀장의 표정이 미묘하게 변합니다.\n\"지금 바쁜 시기인데...\"",
+    choices: [
+      { label: "연차를 강행한다", stress: 4, sanity: 10, money: 0, reputation: -8, result: "하루 쉬었습니다. 죄책감 반, 해방감 반." },
+      { label: "\"나중에 쓸게요.\" (포기)", stress: 7, sanity: -6, money: 0, reputation: 0, result: "쓰지 못하는 연차가 쌓여갑니다." }
+    ]
+  },
+  {
+    id: "E013", category: "BOSS", weight: 25,
+    title: "책임 전가",
+    text: "클라이언트 미팅이 잘못됐습니다.\n\"내가 그렇게 하라고 했어?\n네가 판단한 거잖아.\"\n기억이 다릅니다.",
+    choices: [
+      { label: "\"팀장님이 지시하셨는데요.\" (기록 제시)", stress: 5, sanity: 0, money: 0, reputation: 10, result: "기록이 팀장을 침묵시켰습니다." },
+      { label: "\"제가 부족했습니다.\" (뒤집어쓰기)", stress: 8, sanity: -8, money: 0, reputation: 0, result: "자존심이 바닥에 떨어졌습니다." }
+    ]
+  },
+  {
+    id: "E014", category: "WORK", weight: 25,
+    title: "우리 팀만 야근",
+    text: "창문 너머로 옆 팀이 보입니다.\n6시 정각, 하나둘 퇴근합니다.\n우리 팀은 10시 넘어 퇴근이 기본입니다.",
+    choices: [
+      { label: "\"왜 우리 팀만...\" (부당함 인식)", stress: 8, sanity: -5, money: 0, reputation: 0, result: "오늘따라 퇴사각도기가 유독 선명하게 보입니다." },
+      { label: "\"나만 빨리 성장하는 거야\" (자기합리화)", stress: 3, sanity: 2, money: 0, reputation: 0, result: "설득력은 없지만, 오늘 하루는 버텼습니다." }
+    ]
+  },
+  {
+    id: "E015", category: "CULTURE", weight: 15,
+    title: "음주 문화 강요",
+    text: "\"술 못 마신다고? 그게 말이 돼?\n직장 다니면서 술도 못 마시면 어떻게 해?\"\n팀장이 잔을 건넵니다.",
+    choices: [
+      { label: "억지로 마신다", stress: 8, sanity: -6, money: -1, reputation: 0, result: "속이 좋지 않습니다. 이게 직장 문화라니." },
+      { label: "\"저 체질이라 못 마셔요.\" (단호하게)", stress: 5, sanity: 3, money: 0, reputation: -5, result: "분위기가 어색해졌지만, 나는 지켰습니다." }
+    ]
+  },
+  {
+    id: "E016", category: "WORK", weight: 25,
+    title: "무한 반복 업무",
+    text: "오늘도 똑같은 엑셀 작업입니다.\n어제도, 그제도, 한 달 전도 같은 일이었습니다.\n내가 왜 여기 있는지 모르겠습니다.",
+    choices: [
+      { label: "\"이거 자동화할 수 있는데...\" (제안)", stress: -2, sanity: 5, money: 0, reputation: 5, result: "팀장이 칭찬했습니다. 작은 보람." },
+      { label: "그냥 묵묵히 한다", stress: 6, sanity: -4, money: 0, reputation: 0, result: "오늘도 시간이 느리게 갔습니다." }
+    ]
+  },
+  {
+    id: "E017", category: "BOSS", weight: 25,
+    title: "\"너 대신할 사람 많아\"",
+    text: "업무 중 실수를 했습니다.\n팀장이 차갑게 말합니다.\n\"너 대신할 사람 많아, 알지?\"",
+    choices: [
+      { label: "아무 말도 못 한다", stress: 7, sanity: -8, money: 0, reputation: 0, result: "집에 와서야 눈물이 났습니다." },
+      { label: "(속으로) '나도 이 회사 대신할 곳 많아'", stress: 3, sanity: 5, money: 0, reputation: 0, result: "유머로 승화시켰습니다. 오늘의 정신 승리." }
+    ]
+  },
+  {
+    id: "E018", category: "CRISIS", weight: 10,
+    title: "낮은 연봉 통보",
+    text: "연봉 협상 결과가 왔습니다.\n물가 상승률보다 낮은 인상률.\n\"이 정도면 많이 올려준 거야.\"",
+    choices: [
+      { label: "\"감사합니다.\" (수락)", stress: 6, sanity: -5, money: 0, reputation: 0, result: "통장 잔고와 시장 시세를 번갈아 봤습니다." },
+      { label: "재협상 요청", stress: 3, sanity: 0, money: 10, reputation: -5, result: "추가 인상을 이끌어냈습니다. 작지만 소중한 성과." }
+    ]
+  },
+  {
+    id: "E019", category: "HEAL", weight: 12,
+    title: "기적의 칼퇴",
+    text: "오늘따라 팀장이 일찍 자리를 비웠습니다.\n오후 6시 01분, 아무도 뭐라 하지 않습니다.\n이 기회를 놓치면 안 됩니다.",
+    choices: [
+      { label: "조용히 나간다 (완전 칼퇴)", stress: -12, sanity: 10, money: 0, reputation: 0, result: "저녁이 있는 삶. 오늘은 집밥을 먹었습니다." },
+      { label: "조금 더 하다 간다 (소심 칼퇴)", stress: -5, sanity: 4, money: 0, reputation: 3, result: "그래도 평소보다 2시간 일찍 나왔습니다." }
+    ]
+  },
+  {
+    id: "E020", category: "BOSS", weight: 25,
+    title: "\"회사를 나간다고?\"",
+    text: "무심코 이직 얘기를 했더니\n팀장이 차갑게 묻습니다.\n\"회사를 나간다고? 뭐 할 건데, 준비됐나?\"",
+    choices: [
+      { label: "\"아직 생각 중이에요.\" (얼버무리기)", stress: 6, sanity: -4, money: 0, reputation: -5, result: "긁어 부스럼이 됐습니다." },
+      { label: "\"네, 준비하고 있습니다.\" (단호하게)", stress: 3, sanity: 8, money: 0, reputation: -10, result: "심장이 두근거렸지만, 속이 시원합니다." }
+    ]
+  },
+  {
+    id: "E021", category: "BOSS", weight: 22,
+    title: "\"보고서 다시 써\"",
+    text: "오전 내내 쓴 보고서를\n팀장이 한 줄 보더니 말합니다.\n\"다시 써. 느낌이 별로야.\"",
+    choices: [
+      { label: "\"어떤 부분이 문제인가요?\" (피드백 요청)", stress: 5, sanity: -2, money: 0, reputation: 3, result: "구체적인 피드백을 받았습니다. 그나마 나았네요." },
+      { label: "묵묵히 다시 쓴다", stress: 10, sanity: -8, money: 0, reputation: 0, result: "세 번째 버전을 완성했습니다. 퇴근 시간이 지났습니다." }
+    ]
+  },
+  {
+    id: "E022", category: "PEER", weight: 20,
+    title: "커피 자판기 앞 밀담",
+    text: "동료 이씨가 귓속말로 전합니다.\n\"팀장 자리 바뀐다는 거 들었어?\n내부 인사 발령이래.\"",
+    choices: [
+      { label: "\"그래? 누가 오는데?\" (정보 수집)", stress: -3, sanity: 3, money: 0, reputation: 0, result: "소문은 소문일 뿐. 그래도 기대가 됩니다." },
+      { label: "\"그런 거 관심 없어.\" (무관심)", stress: 0, sanity: 0, money: 0, reputation: 5, result: "일에만 집중하는 사람으로 보입니다." }
+    ]
+  },
+  {
+    id: "E023", category: "WORK", weight: 22,
+    title: "마감 3시간 전 추가 요청",
+    text: "기획팀에서 연락이 옵니다.\n\"이 항목도 추가해주세요.\n오늘 마감 아닌가요? 가능하죠?\"",
+    choices: [
+      { label: "\"추가하겠습니다.\" (수락)", stress: 12, sanity: -8, money: 0, reputation: 5, result: "마감 5분 전에 제출했습니다. 식은땀이 납니다." },
+      { label: "\"이미 마감 시간이라 어렵습니다.\" (거절)", stress: 5, sanity: 2, money: 0, reputation: -5, result: "기획팀이 실망했지만, 기한을 지켰습니다." }
+    ]
+  },
+  {
+    id: "E024", category: "CULTURE", weight: 15,
+    title: "단체 회식 2차",
+    text: "1차가 끝났습니다.\n팀장이 선언합니다.\n\"자, 2차 가자! 오늘은 다 같이!\"\n집이 멉니다.",
+    choices: [
+      { label: "\"저는 여기서 먼저 일어날게요.\"", stress: 3, sanity: 5, money: 0, reputation: -8, result: "\"쟤 왜 먼저 가?\" 소리가 들린 것 같습니다." },
+      { label: "어쩔 수 없이 2차를 간다", stress: 8, sanity: -7, money: 0, reputation: 5, result: "새벽 2시에 귀가했습니다. 내일 출근이 고통입니다." }
+    ]
+  },
+  {
+    id: "E025", category: "CRISIS", weight: 10,
+    title: "실수로 전체 메일 발송",
+    text: "\"팀장 진짜 이상해\"라는 내용을\n전체 메일로 보냈습니다.\n확인하는 순간 심장이 멎었습니다.",
+    choices: [
+      { label: "\"오발송이었습니다\" 즉시 정정 메일", stress: 18, sanity: -10, money: 0, reputation: -15, result: "팀장이 당신을 불렀습니다. 다리가 후들거립니다." },
+      { label: "모른 척하고 컴퓨터를 끈다", stress: 20, sanity: -15, money: 0, reputation: -20, result: "내일 출근이 두렵습니다. 차라리 퇴사가 낫겠습니다." }
+    ]
+  },
+  {
+    id: "E026", category: "HEAL", weight: 12,
+    title: "사내 안마의자",
+    text: "점심시간에 휴게실 안마의자가 비어 있습니다.\n15분 정도 여유가 있습니다.",
+    choices: [
+      { label: "안마의자를 이용한다", stress: -10, sanity: 8, money: 0, reputation: 0, result: "어깨 뭉침이 풀렸습니다. 오후 업무가 버틸 만합니다." },
+      { label: "자리로 돌아가 쉰다", stress: -4, sanity: 3, money: 0, reputation: 3, result: "성실한 직원으로 보일 것 같아 자리를 지켰습니다." }
+    ]
+  },
+  {
+    id: "E027", category: "BOSS", weight: 22,
+    title: "KPI 달성 압박",
+    text: "팀장이 월간 회의에서 말합니다.\n\"이번 달 수치가 목표의 73%야.\n각자 플랜 다시 짜와.\"",
+    choices: [
+      { label: "현실적인 플랜을 솔직하게 제출", stress: 5, sanity: 2, money: 0, reputation: 8, result: "팀장이 고개를 끄덕였습니다. 의외로 합리적이었습니다." },
+      { label: "뻥튀기한 낙관적 플랜을 제출", stress: 8, sanity: -5, money: 0, reputation: -3, result: "당장은 넘어갔지만 다음 달이 걱정됩니다." }
+    ]
+  },
+  {
+    id: "E028", category: "PEER", weight: 20,
+    title: "동료의 퇴사 통보",
+    text: "가장 친한 동료 박씨가\n조용히 다가와 말합니다.\n\"나 다음 달에 나가기로 했어.\"",
+    choices: [
+      { label: "\"잘됐다, 나도 부러워.\" (솔직하게)", stress: 5, sanity: -5, money: 0, reputation: 0, result: "갑자기 혼자 남겨진 기분입니다." },
+      { label: "\"어디로 가? 나도 알아봐줘.\" (기회 포착)", stress: -3, sanity: 5, money: 0, reputation: 0, result: "링크드인을 업데이트 했습니다." }
+    ]
+  },
+  {
+    id: "E029", category: "WORK", weight: 22,
+    title: "회의실 없음",
+    text: "중요한 외부 미팅이 있는데\n회의실이 모두 예약 중입니다.\n팀장이 빨리 잡으라고 재촉합니다.",
+    choices: [
+      { label: "근처 카페로 장소를 변경한다", stress: 4, sanity: 0, money: 0, reputation: 2, result: "카페에서 미팅을 진행했습니다. 나쁘지 않았습니다." },
+      { label: "다른 층 회의실을 무단으로 사용한다", stress: 6, sanity: -3, money: 0, reputation: -5, result: "다른 팀이 들이닥쳤습니다. 민망했습니다." }
+    ]
+  },
+  {
+    id: "E030", category: "CULTURE", weight: 15,
+    title: "점심 메뉴 독재",
+    text: "팀장이 오늘도 결정합니다.\n\"점심은 갈비탕이다.\"\n당신은 어제도 갈비탕을 먹었습니다.",
+    choices: [
+      { label: "\"저는 다른 거 먹겠습니다.\" (독립 선언)", stress: 3, sanity: 5, money: 0, reputation: -5, result: "혼자 제육볶음을 먹었습니다. 자유로웠습니다." },
+      { label: "또 갈비탕을 먹는다", stress: 5, sanity: -3, money: 0, reputation: 3, result: "3일 연속 갈비탕입니다. 위장이 항의합니다." }
+    ]
+  },
+  {
+    id: "E031", category: "BOSS", weight: 22,
+    title: "임원 발표 기회",
+    text: "팀장이 말합니다.\n\"이번 임원 보고, 네가 직접 해봐.\"\n기회인지 함정인지 모르겠습니다.",
+    choices: [
+      { label: "밤새 준비해서 발표한다", stress: 12, sanity: -5, money: 0, reputation: 15, result: "임원이 칭찬했습니다. 팀장이 본인 공으로 돌렸습니다." },
+      { label: "\"제가 하기엔 아직 역량이...\" (회피)", stress: 5, sanity: 0, money: 0, reputation: -8, result: "팀장이 실망한 눈빛을 보냅니다." }
+    ]
+  },
+  {
+    id: "E032", category: "CRISIS", weight: 10,
+    title: "데이터 날림",
+    text: "3일 작업한 파일을\n저장하지 않고 닫아버렸습니다.\n복구가 안 됩니다.",
+    choices: [
+      { label: "팀장에게 솔직하게 보고한다", stress: 15, sanity: -8, money: 0, reputation: -5, result: "팀장이 한숨을 쉬었습니다. 다시 시작합니다." },
+      { label: "밤샘으로 복구를 시도한다", stress: 18, sanity: -12, money: 0, reputation: 5, result: "기억으로 복원했습니다. 오늘은 컴퓨터가 원수입니다." }
+    ]
+  },
+  {
+    id: "E033", category: "PEER", weight: 20,
+    title: "팀 내 소파 자리",
+    text: "신입 때부터 내 자리였던 창가 좌석을\n신참이 차지하고 앉아 있습니다.\n총무팀이 자리 배치를 바꾼다고 합니다.",
+    choices: [
+      { label: "\"저 원래 거기 앉았는데요.\" (주장)", stress: 4, sanity: -2, money: 0, reputation: -3, result: "\"지금은 공용이에요.\" 총무팀이 냉정합니다." },
+      { label: "그냥 다른 자리에 앉는다", stress: 3, sanity: -3, money: 0, reputation: 2, result: "새 자리가 의외로 조용합니다." }
+    ]
+  },
+  {
+    id: "E034", category: "WORK", weight: 22,
+    title: "야근 중 치킨",
+    text: "야근이 길어지자\n팀장이 치킨을 시켜줬습니다.\n뇌물인지 배려인지 모르겠지만 배는 고팠습니다.",
+    choices: [
+      { label: "맛있게 먹고 야근을 마무리한다", stress: -5, sanity: 3, money: 0, reputation: 3, result: "치킨 덕에 오늘 야근은 버틸 만했습니다." },
+      { label: "치킨만 먹고 집에 간다", stress: -8, sanity: 5, money: 0, reputation: -5, result: "치킨은 맛있었고 팀장 표정은 굳었습니다." }
+    ]
+  },
+  {
+    id: "E035", category: "CULTURE", weight: 15,
+    title: "생일 케이크 강제 구매",
+    text: "\"이번 달 생일인 팀원 있으면 모두 1만원씩.\"\n총무가 당연하다는 듯 걷어갑니다.\n이번이 세 번째입니다.",
+    choices: [
+      { label: "\"저는 좀...\" (거절 시도)", stress: 4, sanity: 3, money: 0, reputation: -8, result: "팀원들의 시선이 싸늘합니다." },
+      { label: "또 낸다", stress: 2, sanity: -3, money: 0, reputation: 5, result: "이달만 3만원이 사라졌습니다." }
+    ]
+  },
+  {
+    id: "E036", category: "BOSS", weight: 22,
+    title: "칭찬 같지 않은 칭찬",
+    text: "팀장이 말합니다.\n\"이거 생각보다 잘 했네.\"\n생각보다. 그 두 글자가 걸립니다.",
+    choices: [
+      { label: "\"감사합니다.\" (그냥 넘긴다)", stress: 3, sanity: -2, money: 0, reputation: 3, result: "칭찬은 칭찬입니다. 그냥 받기로 했습니다." },
+      { label: "(속으로) '생각보다가 뭐야?'", stress: 6, sanity: -5, money: 0, reputation: 0, result: "집에 와서 혼자 투덜거렸습니다." }
+    ]
+  },
+  {
+    id: "E037", category: "HEAL", weight: 12,
+    title: "퇴근 후 혼밥",
+    text: "오늘은 혼자 좋아하는 식당에서\n먹고 싶은 것을 먹었습니다.\n아무도 간섭하지 않습니다.",
+    choices: [
+      { label: "천천히 즐긴다 (완전 힐링)", stress: -12, sanity: 10, money: 0, reputation: 0, result: "오늘 하루가 나쁘지 않은 것 같습니다." },
+      { label: "빨리 먹고 회사 업무 확인", stress: -3, sanity: 1, money: 0, reputation: 0, result: "밥을 먹으면서도 업무 생각이 납니다." }
+    ]
+  },
+  {
+    id: "E038", category: "PEER", weight: 20,
+    title: "동기의 승진",
+    text: "같은 해 입사한 동기가\n대리로 먼저 승진했습니다.\n'나는 왜?'라는 생각이 듭니다.",
+    choices: [
+      { label: "진심으로 축하해준다", stress: 5, sanity: -5, money: 0, reputation: 8, result: "동기가 고마워했습니다. 나도 열심히 해야겠습니다." },
+      { label: "조용히 이직 공고를 찾아본다", stress: -3, sanity: 3, money: 0, reputation: 0, result: "좋은 공고가 두 개 있었습니다." }
+    ]
+  },
+  {
+    id: "E039", category: "WORK", weight: 22,
+    title: "프린터 종이 없음",
+    text: "급하게 출력해야 하는데\n프린터 용지가 떨어졌습니다.\n총무팀은 12시 이후 응대가 없습니다.",
+    choices: [
+      { label: "옆 팀에 용지를 빌린다", stress: 3, sanity: 0, money: 0, reputation: 0, result: "용지를 빌려와 간신히 출력했습니다." },
+      { label: "PDF로 대신 공유한다", stress: -2, sanity: 2, money: 0, reputation: 2, result: "\"어, 이게 더 편하네요.\" 기획팀이 반응했습니다." }
+    ]
+  },
+  {
+    id: "E040", category: "BOSS", weight: 22,
+    title: "\"그건 상식 아냐?\"",
+    text: "모르는 내용을 질문했더니\n팀장이 한심하다는 듯 말합니다.\n\"그건 직장인이라면 상식 아냐?\"",
+    choices: [
+      { label: "\"죄송합니다, 공부하겠습니다.\"", stress: 10, sanity: -10, money: 0, reputation: 0, result: "집에 와서 유튜브로 찾아봤습니다." },
+      { label: "\"그런 기준은 잘 몰랐는데요.\" (반문)", stress: 6, sanity: 2, money: 0, reputation: -5, result: "팀장이 잠시 멈칫했습니다." }
+    ]
+  },
+  {
+    id: "E041", category: "CULTURE", weight: 15,
+    title: "사내 동호회 가입 압박",
+    text: "총무팀에서 메일이 왔습니다.\n\"등산 동호회 가입 안 하시나요?\n다들 하시는데...\"",
+    choices: [
+      { label: "\"저는 등산을 못 해서요.\" (거절)", stress: 2, sanity: 3, money: 0, reputation: -5, result: "따돌림은 아니지만 분위기가 어색합니다." },
+      { label: "울며 겨자 먹기로 가입한다", stress: 4, sanity: -4, money: 0, reputation: 5, result: "이번 주 토요일에 북한산을 가야 합니다." }
+    ]
+  },
+  {
+    id: "E042", category: "CRISIS", weight: 10,
+    title: "클라이언트 컴플레인",
+    text: "클라이언트에서 전화가 왔습니다.\n\"이번 납품물에 오류가 있어요.\n당장 책임자 나오세요.\"",
+    choices: [
+      { label: "팀장에게 즉시 보고하고 대응한다", stress: 12, sanity: -5, money: 0, reputation: 5, result: "팀장이 처리했습니다. 그래도 고생은 내 몫이었습니다." },
+      { label: "혼자 직접 처리한다", stress: 15, sanity: -10, money: 0, reputation: 10, result: "위기를 해결했습니다. 팀장이 어깨를 두드렸습니다." }
+    ]
+  },
+  {
+    id: "E043", category: "PEER", weight: 20,
+    title: "팀원의 눈물",
+    text: "화장실에서 신입 팀원이 울고 있습니다.\n물어봐야 할지 모른 척해야 할지\n망설여집니다.",
+    choices: [
+      { label: "\"괜찮아요?\" 조용히 말을 건다", stress: -2, sanity: 5, money: 0, reputation: 8, result: "신입이 고마워했습니다. 사람 사는 곳임을 느꼈습니다." },
+      { label: "모른 척하고 나온다", stress: 3, sanity: -5, money: 0, reputation: -3, result: "나도 저랬던 적이 있었는데, 죄책감이 남습니다." }
+    ]
+  },
+  {
+    id: "E044", category: "WORK", weight: 22,
+    title: "엑셀 오류",
+    text: "팀장에게 제출한 보고서의 합계가\n실제와 다르다는 게 발표 중에 밝혀졌습니다.\n엑셀 수식 하나가 문제였습니다.",
+    choices: [
+      { label: "\"즉시 수정하겠습니다.\" (빠른 수습)", stress: 12, sanity: -5, money: 0, reputation: -5, result: "수정본을 5분 안에 냈습니다. 체면은 살렸습니다." },
+      { label: "다른 핑계를 댄다", stress: 8, sanity: -8, money: 0, reputation: -12, result: "거짓말은 들통났습니다. 더 큰 구멍이 생겼습니다." }
+    ]
+  },
+  {
+    id: "E045", category: "HEAL", weight: 12,
+    title: "점심시간 낮잠",
+    text: "오늘 점심을 빨리 먹었더니\n20분이 남았습니다.\n아무도 없는 회의실이 비어 있습니다.",
+    choices: [
+      { label: "20분 낮잠을 잔다", stress: -10, sanity: 8, money: 0, reputation: 0, result: "오후 집중력이 살아났습니다. 작은 사치입니다." },
+      { label: "자리에서 업무를 미리 처리한다", stress: -2, sanity: 0, money: 0, reputation: 5, result: "일을 끌어당기는 사람이 되고 있는 건 아닐까요?" }
+    ]
+  },
+  {
+    id: "E046", category: "BOSS", weight: 22,
+    title: "\"왜 이렇게 조용해?\"",
+    text: "팀장이 갑자기 묻습니다.\n\"요즘 왜 이렇게 말이 없어?\n무슨 불만 있어?\"",
+    choices: [
+      { label: "\"아니요, 괜찮습니다.\" (否定)", stress: 5, sanity: -5, money: 0, reputation: 0, result: "말을 감추는 일도 일입니다." },
+      { label: "\"사실 조금 지쳐서요.\" (솔직하게)", stress: -5, sanity: 5, money: 0, reputation: 3, result: "팀장이 의외로 들어줬습니다. 오늘은 좀 나았습니다." }
+    ]
+  },
+  {
+    id: "E047", category: "CULTURE", weight: 15,
+    title: "사무실 온도 전쟁",
+    text: "에어컨이 너무 춥다는 팀원 셋과\n덥다는 팀원 둘이 하루 종일 싸웁니다.\n당신은 어느 쪽도 아닙니다.",
+    choices: [
+      { label: "중립 유지 (아무 말 않기)", stress: 3, sanity: -2, money: 0, reputation: 0, result: "전쟁은 내일도 계속됩니다." },
+      { label: "\"제가 실내온도 기준 찾아볼게요.\"", stress: -2, sanity: 2, money: 0, reputation: 5, result: "모두가 잠시 멈췄습니다. 해결사 이미지를 얻었습니다." }
+    ]
+  },
+  {
+    id: "E048", category: "BOSS", weight: 22,
+    title: "회의 중 스마트폰",
+    text: "팀장이 회의 중에 계속 스마트폰을 봅니다.\n당신이 발표하는 중에도 마찬가지입니다.",
+    choices: [
+      { label: "\"팀장님, 자료 확인 후 계속할까요?\"", stress: 4, sanity: 3, money: 0, reputation: 5, result: "팀장이 폰을 내렸습니다. 분위기가 달라졌습니다." },
+      { label: "무시하고 발표를 계속한다", stress: 8, sanity: -6, money: 0, reputation: 0, result: "발표를 끝냈습니다. 팀장은 내용을 모를 겁니다." }
+    ]
+  },
+  {
+    id: "E049", category: "PEER", weight: 20,
+    title: "옆 자리 딸꾹질",
+    text: "옆 자리 동료가 10분째 딸꾹질을 합니다.\n업무에 집중이 안 됩니다.\n눈치 싸움이 시작됩니다.",
+    choices: [
+      { label: "\"물 드세요.\" 조용히 건넨다", stress: -3, sanity: 3, money: 0, reputation: 3, result: "딸꾹질이 멈췄습니다. 작은 영웅이 됐습니다." },
+      { label: "이어폰을 꽂고 버틴다", stress: 4, sanity: -2, money: 0, reputation: 0, result: "집중은 됐지만 심술이 납니다." }
+    ]
+  },
+  {
+    id: "E050", category: "WORK", weight: 22,
+    title: "회의가 또 생겼다",
+    text: "오늘 이미 회의가 세 번인데\n팀장이 추가 회의를 잡았습니다.\n\"오늘 5시 반에 잠깐 모여요.\"",
+    choices: [
+      { label: "\"5시 반은 이미 다른 일정이 있는데요.\"", stress: 4, sanity: 3, money: 0, reputation: -3, result: "팀장이 6시로 바꿨습니다. 결과는 같습니다." },
+      { label: "고분고분 참석한다", stress: 8, sanity: -5, money: 0, reputation: 3, result: "30분짜리 회의가 1시간이 됐습니다." }
+    ]
+  },
+  {
+    id: "E051", category: "CRISIS", weight: 10,
+    title: "서버 장애",
+    text: "오후 2시, 사내 시스템이 전부 내려갔습니다.\nIT팀은 연락 불가입니다.\n오늘 마감 보고서가 서버 안에 있습니다.",
+    choices: [
+      { label: "IT팀 물리적으로 찾아간다", stress: 8, sanity: 0, money: 0, reputation: 5, result: "IT팀이 당황했지만 빠르게 복구됐습니다." },
+      { label: "마감 연장을 요청한다", stress: 5, sanity: 2, money: 0, reputation: -5, result: "연장이 됐습니다. 이번 한 번은 괜찮습니다." }
+    ]
+  },
+  {
+    id: "E052", category: "BOSS", weight: 22,
+    title: "갑작스런 출장 지시",
+    text: "팀장이 말합니다.\n\"이번 주 목요일에 부산 출장 가.\n1박 2일이야. 준비해.\"",
+    choices: [
+      { label: "\"알겠습니다.\" (순응)", stress: 8, sanity: -5, money: 0, reputation: 3, result: "개인 일정은 취소됩니다. 출장 준비를 시작합니다." },
+      { label: "\"개인 일정이 있어서... 다른 분은요?\"", stress: 5, sanity: 0, money: 0, reputation: -5, result: "팀장이 난처한 표정을 지었습니다." }
+    ]
+  },
+  {
+    id: "E053", category: "PEER", weight: 20,
+    title: "업무 떠넘기기",
+    text: "이 대리가 또 일을 넘깁니다.\n\"이거 네가 더 잘 알잖아.\n좀 부탁해.\"",
+    choices: [
+      { label: "\"이건 제 업무가 아닌데요.\" (명확히)", stress: 5, sanity: 3, money: 0, reputation: -3, result: "이 대리가 삐졌지만 당신은 지켰습니다." },
+      { label: "또 받아준다", stress: 10, sanity: -8, money: 0, reputation: 5, result: "내 일도 남의 일도 내 일이 됐습니다." }
+    ]
+  },
+  {
+    id: "E054", category: "WORK", weight: 22,
+    title: "발표 긴장",
+    text: "오전 10시, 전사 발표가 있습니다.\n어젯밤 준비는 충분히 했습니다.\n그런데 마이크를 잡으니 목소리가 떨립니다.",
+    choices: [
+      { label: "천천히 숨을 고르고 시작한다", stress: 5, sanity: 0, money: 0, reputation: 8, result: "발표를 잘 마쳤습니다. 팀장이 고개를 끄덕였습니다." },
+      { label: "빠르게 읽고 끝내버린다", stress: 8, sanity: -5, money: 0, reputation: -5, result: "알아듣기 힘들었다는 피드백을 받았습니다." }
+    ]
+  },
+  {
+    id: "E055", category: "HEAL", weight: 12,
+    title: "퇴근 후 운동",
+    text: "오늘따라 헬스장을 가고 싶습니다.\n하지만 퇴근이 늦어 몸이 무겁습니다.",
+    choices: [
+      { label: "힘을 내서 간다", stress: -10, sanity: 8, money: 0, reputation: 0, result: "운동 후 샤워를 하니 머릿속이 맑아졌습니다." },
+      { label: "오늘은 그냥 집에 간다", stress: -4, sanity: 3, money: 0, reputation: 0, result: "소파에 누웠습니다. 내일 가지, 뭐." }
+    ]
+  },
+  {
+    id: "E056", category: "CULTURE", weight: 15,
+    title: "팀 워크숍 공지",
+    text: "인사팀에서 공지가 왔습니다.\n\"이번 주말 1박 2일 팀 워크숍 참석 필수.\n장소: 강원도 펜션.\"",
+    choices: [
+      { label: "\"개인 사유로 참석이 어렵습니다.\"", stress: 4, sanity: 5, money: 0, reputation: -10, result: "인사 기록에 남을 것 같습니다." },
+      { label: "울며 겨자 먹기로 참석한다", stress: 10, sanity: -10, money: 0, reputation: 8, result: "주말이 사라졌습니다. 회사 충성도는 올랐습니다." }
+    ]
+  },
+  {
+    id: "E057", category: "BOSS", weight: 22,
+    title: "근무 중 딴짓 적발",
+    text: "팀장이 지나가다 멈춥니다.\n화면에 유튜브가 열려 있었습니다.\n\"뭐 봐?\"",
+    choices: [
+      { label: "\"업무 관련 자료 찾다가요.\" (변명)", stress: 10, sanity: -8, money: 0, reputation: -5, result: "팀장이 의심의 눈초리로 갑니다." },
+      { label: "\"잠깐 쉬려고요.\" (솔직하게)", stress: 8, sanity: 2, money: 0, reputation: -3, result: "팀장이 황당해했지만 의외로 그냥 갔습니다." }
+    ]
+  },
+  {
+    id: "E058", category: "PEER", weight: 20,
+    title: "점심 더치페이 논란",
+    text: "팀 점심 후 더치페이를 하는데\n김 과장이 \"나 현금 없어\"라고 합니다.\n오늘로 세 번째입니다.",
+    choices: [
+      { label: "\"카드 되는 데도 있는데요.\" (지적)", stress: 4, sanity: 2, money: 0, reputation: -3, result: "분위기가 잠깐 어색했습니다." },
+      { label: "또 대신 내준다", stress: 3, sanity: -5, money: 0, reputation: 3, result: "통장에서 만원이 나갔습니다. 언제 돌려받을지..." }
+    ]
+  },
+  {
+    id: "E059", category: "WORK", weight: 22,
+    title: "스프레드시트 공유 사고",
+    text: "편집 권한으로 공유한 파일에서\n누군가 수식을 다 지워버렸습니다.\n백업이 없습니다.",
+    choices: [
+      { label: "구글 버전 기록으로 복원한다", stress: 8, sanity: 0, money: 0, reputation: 3, result: "다행히 복원에 성공했습니다. 식은땀이 납니다." },
+      { label: "처음부터 다시 만든다", stress: 15, sanity: -10, money: 0, reputation: 0, result: "점심시간을 반납해서 완성했습니다." }
+    ]
+  },
+  {
+    id: "E060", category: "BOSS", weight: 22,
+    title: "회의 중 망신",
+    text: "팀장이 회의에서 당신의 실수를\n다른 팀원들 앞에서 언급했습니다.\n\"이런 거 봐. 이렇게 하면 어떡해.\"",
+    choices: [
+      { label: "\"죄송합니다.\" 고개를 숙인다", stress: 12, sanity: -12, money: 0, reputation: -5, result: "얼굴이 달아올랐습니다. 오늘은 너무 힘들었습니다." },
+      { label: "\"다음에는 더 잘 하겠습니다.\" (당당하게)", stress: 8, sanity: -3, money: 0, reputation: 2, result: "팀장이 잠시 멈칫했습니다. 당신은 무너지지 않았습니다." }
+    ]
+  },
+  {
+    id: "E061", category: "HEAL", weight: 12,
+    title: "사내 카페 무료 이벤트",
+    text: "오늘 사내 카페에서 아이스 아메리카노를\n무료로 나눠줍니다.\n줄이 길지만 시간이 있습니다.",
+    choices: [
+      { label: "줄 서서 받는다", stress: -6, sanity: 5, money: 0, reputation: 0, result: "공짜 커피 한 잔이 오후를 바꿔놓습니다." },
+      { label: "줄 서기 귀찮아서 패스", stress: 0, sanity: 0, money: 0, reputation: 0, result: "나중에 후회했습니다. 내 결정이니 어쩔 수 없습니다." }
+    ]
+  },
+  {
+    id: "E062", category: "CRISIS", weight: 10,
+    title: "인사 평가 시즌",
+    text: "상반기 인사 평가 결과가 나왔습니다.\nC등급이 떴습니다.\n팀장과 면담을 잡았습니다.",
+    choices: [
+      { label: "\"어떤 부분이 부족했나요?\" (수용)", stress: 8, sanity: -5, money: 0, reputation: 5, result: "솔직한 피드백을 받았습니다. 아팠지만 유용했습니다." },
+      { label: "\"평가 기준이 불명확한 것 같습니다.\" (이의)", stress: 10, sanity: 3, money: 0, reputation: -8, result: "팀장이 불편해했습니다. 소신은 지켰습니다." }
+    ]
+  },
+  {
+    id: "E063", category: "CULTURE", weight: 15,
+    title: "사내 메신저 근태 감시",
+    text: "팀장이 메신저 접속 시간으로\n직원 출퇴근을 확인한다는 소문이 돕니다.\n오늘 아침에 로그인이 1분 늦었습니다.",
+    choices: [
+      { label: "모른 척하고 일한다", stress: 5, sanity: -3, money: 0, reputation: 0, result: "아무 연락도 없었습니다. 기우였나 봅니다." },
+      { label: "팀장에게 먼저 상황 설명을 한다", stress: 4, sanity: -2, money: 0, reputation: 3, result: "팀장이 \"괜찮아요\"라고 했습니다. 의외로 사람이었습니다." }
+    ]
+  },
+  {
+    id: "E064", category: "BOSS", weight: 22,
+    title: "모순된 지시",
+    text: "어제 팀장은 A 방향으로 진행하라 했고\n오늘은 B 방향으로 하라고 합니다.\n이미 A로 절반 진행했습니다.",
+    choices: [
+      { label: "\"어제 A로 하기로 했는데, 확인해도 될까요?\"", stress: 5, sanity: 2, money: 0, reputation: 3, result: "팀장이 \"아, 그랬나\" 합니다. 기록의 힘입니다." },
+      { label: "그냥 B로 다시 시작한다", stress: 12, sanity: -8, money: 0, reputation: 0, result: "어제 한 작업이 물거품이 됐습니다." }
+    ]
+  },
+  {
+    id: "E065", category: "PEER", weight: 20,
+    title: "화장실에서 마주침",
+    text: "갈등이 있는 박 대리와\n화장실에서 마주쳤습니다.\n어색한 침묵이 흐릅니다.",
+    choices: [
+      { label: "가볍게 인사를 건넨다", stress: -2, sanity: 3, money: 0, reputation: 5, result: "박 대리가 머쓱하게 웃었습니다. 분위기가 조금 녹았습니다." },
+      { label: "눈을 피하고 빠르게 나온다", stress: 3, sanity: -3, money: 0, reputation: -3, result: "갈등이 봉합되지 않습니다. 내일도 어색하겠지요." }
+    ]
+  },
+  {
+    id: "E066", category: "WORK", weight: 22,
+    title: "야근 중 컴퓨터 배터리",
+    text: "야근 중 노트북 배터리가 10%입니다.\n충전기가 집에 있습니다.\n일은 아직 두 시간이 남았습니다.",
+    choices: [
+      { label: "동료에게 충전기를 빌린다", stress: 4, sanity: 0, money: 0, reputation: 0, result: "간신히 빌렸습니다. 동료에게 빚이 생겼습니다." },
+      { label: "서둘러 일을 마무리한다", stress: 8, sanity: -3, money: 0, reputation: 3, result: "1시간 만에 끝냈습니다. 위기가 집중력을 만들었습니다." }
+    ]
+  },
+  {
+    id: "E067", category: "BOSS", weight: 22,
+    title: "\"일 배우는 거야 아니야?\"",
+    text: "팀장이 한숨을 쉬며 말합니다.\n\"너 지금 몇 년 차야?\n아직도 이게 안 돼?\"",
+    choices: [
+      { label: "\"죄송합니다, 더 노력하겠습니다.\"", stress: 12, sanity: -12, money: 0, reputation: 0, result: "자존감이 흔들렸습니다. 퇴사각도기가 요동칩니다." },
+      { label: "\"어떤 부분을 개선하면 될까요?\" (전환)", stress: 7, sanity: -2, money: 0, reputation: 3, result: "피드백 형식으로 전환했습니다. 감정 소비가 줄었습니다." }
+    ]
+  },
+  {
+    id: "E068", category: "HEAL", weight: 12,
+    title: "책상 위 간식",
+    text: "누군가 팀 공용 공간에\n과자를 잔뜩 올려놓았습니다.\n배가 약간 고픕니다.",
+    choices: [
+      { label: "하나 집어 먹는다", stress: -5, sanity: 4, money: 0, reputation: 0, result: "달달한 게 들어가니 오후가 버틸 만합니다." },
+      { label: "안 먹는다 (의지력 발휘)", stress: 0, sanity: 0, money: 0, reputation: 0, result: "의지력을 발휘했습니다. 어차피 살은 안 빠집니다." }
+    ]
+  },
+  {
+    id: "E069", category: "PEER", weight: 20,
+    title: "잦은 사담 동료",
+    text: "이씨가 또 자리로 와서 20분째 얘기합니다.\n일을 못 하고 있습니다.\n그러나 이씨는 좋은 사람입니다.",
+    choices: [
+      { label: "\"나 지금 급한 거 있어서...\" (정중히 차단)", stress: 2, sanity: 3, money: 0, reputation: -2, result: "이씨가 멋쩍게 자리로 돌아갔습니다." },
+      { label: "같이 수다를 떤다", stress: -3, sanity: 5, money: 0, reputation: 3, result: "업무가 밀렸지만 기분은 좋아졌습니다." }
+    ]
+  },
+  {
+    id: "E070", category: "CULTURE", weight: 15,
+    title: "연말 시상식",
+    text: "회사 연말 시상식에서\n최우수상이 발표됩니다.\n당신 이름이 아닌 다른 사람의 이름이 불렸습니다.",
+    choices: [
+      { label: "진심으로 박수를 친다", stress: 3, sanity: -3, money: 0, reputation: 5, result: "수상자가 고마워했습니다. 어른스러운 하루였습니다." },
+      { label: "(속으로) '내가 더 잘했는데'", stress: 6, sanity: -5, money: 0, reputation: 0, result: "자존심이 상했지만 겉으로는 내색하지 않았습니다." }
+    ]
+  },
+  {
+    id: "E071", category: "CRISIS", weight: 10,
+    title: "갑자기 팀장 부재",
+    text: "팀장이 급한 개인 사정으로\n3일간 자리를 비웁니다.\n모든 판단이 당신에게 쏠렸습니다.",
+    choices: [
+      { label: "적극적으로 대리 역할을 한다", stress: 10, sanity: -5, money: 0, reputation: 15, result: "팀이 무사히 굴러갔습니다. 인정받는 계기가 됐습니다." },
+      { label: "최소한만 처리하고 나머지는 미룬다", stress: 3, sanity: 3, money: 0, reputation: -8, result: "팀장이 복귀하자마자 일이 터졌습니다." }
+    ]
+  },
+  {
+    id: "E072", category: "BOSS", weight: 22,
+    title: "칭찬 메일",
+    text: "팀장이 전체 메일로 보냈습니다.\n\"이번 프로젝트, 특히 ○○씨 덕분에\n잘 마무리됐습니다.\"",
+    choices: [
+      { label: "\"감사합니다.\" 간단히 답장한다", stress: -5, sanity: 5, money: 0, reputation: 10, result: "오늘 하루가 달라 보입니다." },
+      { label: "팀 덕분이라고 겸손하게 답장한다", stress: -3, sanity: 5, money: 0, reputation: 12, result: "팀원들도 좋아했습니다. 완벽한 답이었습니다." }
+    ]
+  },
+  {
+    id: "E073", category: "WORK", weight: 22,
+    title: "PPT 오타 발견",
+    text: "발표 10분 전,\n슬라이드 표지에 오타가 발견됐습니다.\n '팀장'이 '팀짱'으로 되어 있습니다.",
+    choices: [
+      { label: "빠르게 수정하고 다시 저장한다", stress: 8, sanity: -2, money: 0, reputation: 3, result: "간신히 수정했습니다. 아무도 몰랐을 겁니다." },
+      { label: "그냥 넘어간다", stress: 3, sanity: 0, money: 0, reputation: -8, result: "발표 중 누군가 웃었습니다. 팀장이 화면을 봤습니다." }
+    ]
+  },
+  {
+    id: "E074", category: "PEER", weight: 20,
+    title: "단톡방 과한 리액션",
+    text: "팀 단톡방에서 팀장이 공지를 올렸습니다.\n팀원들이 \"네 팀장님!\", \"알겠습니다!\"\n이모티콘과 함께 앞다퉈 답합니다.",
+    choices: [
+      { label: "나도 빠르게 답장한다", stress: 2, sanity: -3, money: 0, reputation: 3, result: "읽었다는 확인만 됐습니다." },
+      { label: "이미 많이 달렸으니 패스한다", stress: 0, sanity: 2, money: 0, reputation: -2, result: "팀장이 눈치챘을지 모릅니다." }
+    ]
+  },
+  {
+    id: "E075", category: "HEAL", weight: 12,
+    title: "퇴근 후 편의점 맥주",
+    text: "힘든 하루였습니다.\n편의점 앞 평상에 앉아\n캔맥주 하나를 땁니다.",
+    choices: [
+      { label: "한 캔만 마시고 집에 간다", stress: -12, sanity: 8, money: 0, reputation: 0, result: "오늘의 위로는 이걸로 충분합니다." },
+      { label: "한 캔이 두 캔이 됐다", stress: -8, sanity: 5, money: 0, reputation: 0, result: "내일 아침이 걱정됩니다. 그래도 오늘은 풀었습니다." }
+    ]
+  },
+  {
+    id: "E076", category: "BOSS", weight: 22,
+    title: "팀장 개인 심부름",
+    text: "팀장이 말합니다.\n\"오늘 내 차 주유 좀 해줄 수 있어?\n주유소 두 블럭 앞에 있어.\"",
+    choices: [
+      { label: "\"업무 중엔 어렵습니다.\" (거절)", stress: 6, sanity: 5, money: 0, reputation: -8, result: "팀장이 노골적으로 불쾌해했습니다. 소신을 지켰습니다." },
+      { label: "주유를 하고 온다", stress: 5, sanity: -8, money: 0, reputation: 3, result: "30분을 쓰고 왔습니다. 이건 아닌 것 같습니다." }
+    ]
+  },
+  {
+    id: "E077", category: "CRISIS", weight: 10,
+    title: "부서 이동 통보",
+    text: "인사팀에서 연락이 왔습니다.\n\"다음 달부터 영업팀으로 발령입니다.\"\n원한 적 없는 팀입니다.",
+    choices: [
+      { label: "수용하고 마음을 준비한다", stress: 10, sanity: -8, money: 0, reputation: 5, result: "새 팀에서 새 시작. 잘 될 수도 있습니다." },
+      { label: "인사팀에 재고를 요청한다", stress: 8, sanity: 3, money: 0, reputation: -5, result: "\"인사 원칙입니다.\" 거부 불가입니다." }
+    ]
+  },
+  {
+    id: "E078", category: "WORK", weight: 22,
+    title: "업무 매뉴얼 없음",
+    text: "이달부터 새 업무를 맡았습니다.\n\"이전 담당자한테 배워요.\"\n이전 담당자는 이미 퇴사했습니다.",
+    choices: [
+      { label: "혼자 파악하며 매뉴얼을 만든다", stress: 12, sanity: -5, money: 0, reputation: 10, result: "3주 만에 완성했습니다. 당신이 전문가가 됐습니다." },
+      { label: "모를 때마다 팀장에게 물어본다", stress: 8, sanity: -5, money: 0, reputation: -3, result: "팀장이 자주 묻지 말라고 했습니다." }
+    ]
+  },
+  {
+    id: "E079", category: "CULTURE", weight: 15,
+    title: "회사 창립기념일",
+    text: "회사 창립기념일이라 오후 3시에 케이크를 나눕니다.\n팀장이 한마디 합니다.\n\"이 회사가 있어서 우리 밥을 먹을 수 있잖아.\"",
+    choices: [
+      { label: "고개를 끄덕이며 케이크를 먹는다", stress: -3, sanity: -2, money: 0, reputation: 3, result: "케이크는 맛있었습니다." },
+      { label: "(속으로) '내 노동이 있어서 회사가 있지'", stress: -2, sanity: 3, money: 0, reputation: 0, result: "혼자 생각 속에서 이겼습니다." }
+    ]
+  },
+  {
+    id: "E080", category: "BOSS", weight: 22,
+    title: "커리어 상담",
+    text: "팀장이 1on1 면담에서 묻습니다.\n\"앞으로 어떤 방향으로 성장하고 싶어?\n솔직하게 얘기해봐.\"",
+    choices: [
+      { label: "솔직하게 이직 준비 중이라 말한다", stress: 5, sanity: 8, money: 0, reputation: -10, result: "팀장이 당황했지만 이상하게 존중해줬습니다." },
+      { label: "회사 성장에 맞는 무난한 답변", stress: 3, sanity: -5, money: 0, reputation: 5, result: "무난하게 넘어갔습니다. 내 얘기가 아니었습니다." }
+    ]
+  },
+  {
+    id: "E081", category: "PEER", weight: 20,
+    title: "사무실 소문의 주인공",
+    text: "어딘가에서 당신 이야기가 나돌고 있습니다.\n\"쟤 퇴사한다더라.\"\n사실이 아닌데 팀장이 들었을 수도 있습니다.",
+    choices: [
+      { label: "팀장에게 먼저 사실이 아님을 알린다", stress: 5, sanity: 0, money: 0, reputation: 5, result: "팀장이 \"알았어\"라고 했습니다. 일단락됐습니다." },
+      { label: "모른 척하고 두고 본다", stress: 8, sanity: -5, money: 0, reputation: -5, result: "소문이 점점 커지고 있습니다." }
+    ]
+  },
+  {
+    id: "E082", category: "WORK", weight: 22,
+    title: "너무 쉬운 업무",
+    text: "오늘 맡은 업무가 너무 단순합니다.\n이걸 해도 괜찮은 건지\n나를 낮게 보는 건지 모르겠습니다.",
+    choices: [
+      { label: "완벽하게 마무리하고 추가 업무를 요청한다", stress: -3, sanity: 0, money: 0, reputation: 5, result: "팀장이 눈여겨봤습니다." },
+      { label: "주어진 것만 하고 쉰다", stress: -8, sanity: 5, money: 0, reputation: -3, result: "몸은 편했습니다. 자괴감은 들었습니다." }
+    ]
+  },
+  {
+    id: "E083", category: "HEAL", weight: 12,
+    title: "갑자기 당긴 야근 중 도넛",
+    text: "배달의민족에 도넛 쿠폰이 있습니다.\n야근 중 당 떨어진 시간, 11시 30분입니다.",
+    choices: [
+      { label: "시킨다 (자기 위로)", stress: -8, sanity: 5, money: 0, reputation: 0, result: "도넛이 왔습니다. 오늘의 작은 행복입니다." },
+      { label: "참고 집에 간다", stress: -3, sanity: 0, money: 0, reputation: 0, result: "집에 오니 배가 많이 고팠습니다." }
+    ]
+  },
+  {
+    id: "E084", category: "BOSS", weight: 22,
+    title: "타 팀 지원 요청",
+    text: "타 팀장이 팀장에게 요청해\n당신이 2주간 다른 팀을 지원해야 합니다.\n동의를 구한 적 없습니다.",
+    choices: [
+      { label: "수락하고 좋은 인상을 남긴다", stress: 8, sanity: -5, money: 0, reputation: 10, result: "타 팀원들에게 인상을 남겼습니다. 네트워크가 생겼습니다." },
+      { label: "\"원래 팀 업무가 밀려서요...\"(이의)", stress: 5, sanity: 3, money: 0, reputation: -5, result: "팀장이 어쩔 수 없이 다른 사람을 보냈습니다." }
+    ]
+  },
+  {
+    id: "E085", category: "CRISIS", weight: 10,
+    title: "갑자기 팀 해체 소문",
+    text: "우리 팀이 다음 분기에 해체될 수 있다는\n소문이 돌기 시작합니다.\n팀장은 아무 말이 없습니다.",
+    choices: [
+      { label: "팀장에게 직접 물어본다", stress: 8, sanity: 3, money: 0, reputation: 3, result: "\"아직 결정된 건 없어.\" 불확실함은 계속됩니다." },
+      { label: "이직 준비를 시작한다", stress: -3, sanity: 5, money: 0, reputation: 0, result: "이력서를 업데이트했습니다. 대비하는 것도 나쁘지 않습니다." }
+    ]
+  },
+  {
+    id: "E086", category: "PEER", weight: 20,
+    title: "동료의 비밀 고백",
+    text: "이 대리가 퇴근 후 따로 만나\n\"사실 나 번아웃 왔어. 아무한테도 말하지 마.\"",
+    choices: [
+      { label: "진심으로 들어준다", stress: -2, sanity: 5, money: 0, reputation: 8, result: "이 대리가 고마워했습니다. 서로 기댈 수 있는 사람이 생겼습니다." },
+      { label: "\"팀장에게 얘기해봐.\" (조언)", stress: 0, sanity: 0, money: 0, reputation: -3, result: "이 대리가 \"아직은 말하기 싫어\"라고 했습니다." }
+    ]
+  },
+  {
+    id: "E087", category: "WORK", weight: 22,
+    title: "두 개의 마감이 같은 날",
+    text: "A프로젝트와 B프로젝트 마감이\n같은 날로 잡혔습니다.\n둘 다 중요하고 혼자 처리해야 합니다.",
+    choices: [
+      { label: "우선순위를 정해 하나를 먼저 완성한다", stress: 10, sanity: -5, money: 0, reputation: 5, result: "A를 먼저 냈고 B는 1시간 늦었습니다. 양해를 구했습니다." },
+      { label: "둘 다 대충 맞춰 제출한다", stress: 8, sanity: -8, money: 0, reputation: -5, result: "둘 다 피드백이 쏟아졌습니다." }
+    ]
+  },
+  {
+    id: "E088", category: "CULTURE", weight: 15,
+    title: "화장실 줄",
+    text: "화장실이 하나뿐인데\n전 팀원이 점심 후 한꺼번에 몰렸습니다.\n급한 상황입니다.",
+    choices: [
+      { label: "다른 층 화장실로 간다", stress: 3, sanity: 2, money: 0, reputation: 0, result: "살았습니다. 다리 운동도 됐습니다." },
+      { label: "줄을 서서 기다린다", stress: 5, sanity: -3, money: 0, reputation: 0, result: "9분을 기다렸습니다. 기나긴 9분이었습니다." }
+    ]
+  },
+  {
+    id: "E089", category: "BOSS", weight: 22,
+    title: "팀장의 퇴사",
+    text: "팀장이 갑자기 퇴사를 발표했습니다.\n충격입니다. 악연이었지만\n막상 사라지니 허전합니다.",
+    choices: [
+      { label: "진심으로 인사를 건넨다", stress: -5, sanity: 5, money: 0, reputation: 5, result: "팀장이 \"고생했어\"라고 했습니다. 진심인지는 모르겠습니다." },
+      { label: "(속으로) '잘됐다' 생각한다", stress: -10, sanity: 5, money: 0, reputation: 0, result: "다음 팀장이 더 나쁠 수도 있습니다. 기대 반, 불안 반." }
+    ]
+  },
+  {
+    id: "E090", category: "HEAL", weight: 12,
+    title: "주말 아침의 자유",
+    text: "이번 주말은 아무 일정도 없습니다.\n출근 걱정 없이 늦잠을 잤습니다.\n지금 오전 10시입니다.",
+    choices: [
+      { label: "하루 종일 쉰다", stress: -15, sanity: 12, money: 0, reputation: 0, result: "월요일이 아직 멀었습니다. 오늘만큼은 행복합니다." },
+      { label: "자기계발을 한다 (책, 강의 등)", stress: -8, sanity: 8, money: 0, reputation: 0, result: "뭔가 생산적인 기분입니다. 나쁘지 않습니다." }
+    ]
+  },
+  {
+    id: "E091", category: "PEER", weight: 20,
+    title: "신입의 실수 덮어주기",
+    text: "신입이 실수를 했고\n팀장이 눈치채기 전에 당신이 먼저 발견했습니다.\n수정할 시간은 있습니다.",
+    choices: [
+      { label: "함께 조용히 수정해준다", stress: 3, sanity: 3, money: 0, reputation: 8, result: "신입이 눈물을 참았습니다. 고마워했습니다." },
+      { label: "팀장에게 보고한다", stress: 5, sanity: -3, money: 0, reputation: -5, result: "신입이 크게 혼났습니다. 다음에 당신한테 물어보지 않겠지요." }
+    ]
+  },
+  {
+    id: "E092", category: "CRISIS", weight: 10,
+    title: "회사 워크샵 사고",
+    text: "워크샵 레크리에이션 중\n팀장이 발목을 삐었습니다.\n병원에 데려다줄 사람이 필요합니다.",
+    choices: [
+      { label: "직접 데려다준다", stress: 5, sanity: 0, money: 0, reputation: 12, result: "팀장이 고마워했습니다. 관계가 한 층 나아진 것 같습니다." },
+      { label: "슬쩍 뒤로 빠진다", stress: 0, sanity: 0, money: 0, reputation: -8, result: "결국 다른 팀원이 갔습니다. 눈치가 보입니다." }
+    ]
+  },
+  {
+    id: "E093", category: "WORK", weight: 22,
+    title: "업무 성과 독점",
+    text: "팀 성과를 팀장이 혼자 임원에게 보고하면서\n당신 이름은 한 번도 언급되지 않았습니다.",
+    choices: [
+      { label: "팀장에게 개인적으로 이야기한다", stress: 7, sanity: 3, money: 0, reputation: 5, result: "팀장이 \"다음엔 언급할게\"라고 했습니다. 믿어봅니다." },
+      { label: "직접 임원에게 메일을 보낸다", stress: 10, sanity: 5, money: 0, reputation: -10, result: "팀장이 굉장히 불편해했습니다. 진실은 알렸습니다." }
+    ]
+  },
+  {
+    id: "E094", category: "BOSS", weight: 22,
+    title: "팀장의 농담",
+    text: "팀장이 회의에서 말합니다.\n\"우리 팀 연봉이 쎄면 더 열심히 하려나? 하하.\"\n전혀 웃기지 않습니다.",
+    choices: [
+      { label: "억지로 웃는다", stress: 5, sanity: -5, money: 0, reputation: 3, result: "웃음 근육이 아픕니다." },
+      { label: "무표정으로 있는다", stress: 3, sanity: 2, money: 0, reputation: -3, result: "팀장이 눈치챘지만 넘어갔습니다." }
+    ]
+  },
+  {
+    id: "E095", category: "CULTURE", weight: 15,
+    title: "팀 단톡방 외 단톡방",
+    text: "팀원들끼리 만든 비밀 단톡방에서\n당신만 빠진 것 같습니다.\n핸드폰에서 웃음소리가 들립니다.",
+    choices: [
+      { label: "동료에게 직접 물어본다", stress: 5, sanity: -5, money: 0, reputation: 3, result: "\"아, 미안, 너도 넣을게\" 해결됐지만 씁쓸합니다." },
+      { label: "모른 척한다", stress: 6, sanity: -8, money: 0, reputation: 0, result: "뭔가 어색한 기분이 하루 종일 지속됩니다." }
+    ]
+  },
+  {
+    id: "E096", category: "PEER", weight: 20,
+    title: "회의 중 내 아이디어 빼앗기",
+    text: "아까 당신이 슬랙에 올린 아이디어를\n동료가 회의 중 자기 아이디어로 발표합니다.\n팀장이 칭찬합니다.",
+    choices: [
+      { label: "\"저도 비슷하게 생각했는데요.\" (주장)", stress: 6, sanity: 3, money: 0, reputation: 5, result: "어색한 침묵 후 팀장이 고개를 끄덕였습니다." },
+      { label: "지금은 참고 나중에 기록을 남긴다", stress: 8, sanity: -5, money: 0, reputation: 0, result: "메모장에 이 일을 적어뒀습니다." }
+    ]
+  },
+  {
+    id: "E097", category: "WORK", weight: 22,
+    title: "회의록 작성 당첨",
+    text: "회의마다 회의록을 당신이 씁니다.\n이번에도 팀장이 눈빛으로 당신을 지목했습니다.\n아무도 하기 싫은 일입니다.",
+    choices: [
+      { label: "또 쓴다 (익숙해진다)", stress: 5, sanity: -3, money: 0, reputation: 5, result: "지금쯤 회의록 전문가가 됐습니다." },
+      { label: "\"이번엔 돌아가면서 쓰면 어떨까요?\"", stress: 3, sanity: 3, money: 0, reputation: 2, result: "팀장이 \"그래 봐요\"라고 했습니다. 작은 혁명입니다." }
+    ]
+  },
+  {
+    id: "E098", category: "HEAL", weight: 12,
+    title: "동기와 퇴근 후 식사",
+    text: "오랜만에 입사 동기들과\n치맥을 먹기로 했습니다.\n모두 다들 힘들어 보이지만 웃고 있습니다.",
+    choices: [
+      { label: "실컷 회사 욕을 하며 논다", stress: -15, sanity: 12, money: 0, reputation: 0, result: "같이 힘든 사람이 있다는 게 위안입니다." },
+      { label: "\"나는 괜찮아\" 강한 척한다", stress: -3, sanity: -3, money: 0, reputation: 3, result: "집에 와서 혼자 울었습니다." }
+    ]
+  },
+  {
+    id: "E099", category: "BOSS", weight: 22,
+    title: "\"요즘 왜 이렇게 안 되는 거야?\"",
+    text: "팀장이 팀 전체에게 말합니다.\n\"요즘 성과가 왜 이렇게 안 나와?\n다들 열정이 없어진 거야?\"",
+    choices: [
+      { label: "\"구체적으로 어떤 부분이 문제인가요?\"", stress: 5, sanity: 2, money: 0, reputation: 5, result: "팀장이 멈칫했습니다. 문제는 구체적이어야 합니다." },
+      { label: "고개를 숙이고 침묵한다", stress: 10, sanity: -10, money: 0, reputation: 0, result: "침묵이 동의처럼 보였습니다. 퇴사각도기가 흔들립니다." }
+    ]
+  },
+  {
+    id: "E100", category: "CRISIS", weight: 10,
+    title: "내 책상에 짐이 와 있다",
+    text: "출근했더니 책상 위에 박스가 있습니다.\n안에는 내 물건들이 담겨 있습니다.\n인사팀장이 기다리고 있습니다.",
+    choices: [
+      { label: "침착하게 상황 파악을 요청한다", stress: 15, sanity: -10, money: 0, reputation: 0, result: "\"권고사직입니다.\" 세상이 멈춘 것 같습니다." },
+      { label: "박스를 들고 조용히 나간다", stress: 10, sanity: -5, money: 0, reputation: 0, result: "엘리베이터 안에서 눈물이 났습니다. 새 시작입니다." }
+    ]
+  }
+];
+
+// 카테고리 이름 매핑
+const catNames = {
+  BOSS: "👔 상사", CRISIS: "⚠️ 위기", PEER: "👥 동료",
+  WORK: "💼 업무", CULTURE: "🍺 조직문화", HEAL: "😌 휴식", PAYDAY: "💰 월급날"
+};
+
+// ─────────────────────────────────────────────
+//  ENDING DATA
+// ─────────────────────────────────────────────
+const endings = {
+  INSTANT: {
+    icon: "🚪", type: "INSTANT ENDING", color: "ending-INSTANT",
+    title: "더는 못 하겠습니다.",
+    text: "어느 날 아침, 가방을 챙기다\n손이 멈췄습니다.\n사표를 꺼냈습니다.\n팀장 자리에 두고 나왔습니다.\n아직도 심장이 두근거립니다."
+  },
+  BURNOUT: {
+    icon: "🌑", type: "BURNOUT ENDING", color: "ending-BURNOUT",
+    title: "어느 날 아침, 출근 준비를 하다가 멈췄습니다.",
+    text: "몸이 먼저 알았습니다.\n더 이상 갈 수 없다고.\n병원 진단서: 번아웃 증후군.\n쉬는 것도 일이 됐습니다."
+  },
+  PLANNED: {
+    icon: "✈️", type: "PLANNED EXIT", color: "ending-PLANNED",
+    title: "30일을 버텼습니다.",
+    text: "이직 합격 메일이 기다리고 있었습니다.\n떨리는 손으로 합격 버튼을 눌렀습니다.\n퇴직서 제출일: 다음 주 월요일.\n이제 진짜 시작입니다."
+  },
+  SURVIVE: {
+    icon: "😮‍💨", type: "SURVIVAL ENDING", color: "ending-SURVIVE",
+    title: "버텼습니다.",
+    text: "승진도 이직도 아니었지만\n30일을 버텼습니다.\n직장인의 가장 평범하고\n가장 위대한 결말입니다."
+  },
+  PROMOTION: {
+    icon: "🏆", type: "HIDDEN ENDING ★", color: "ending-PROMOTION",
+    title: "연말 인사 발표. 당신의 이름이 불렸습니다.",
+    text: "대리 승진!\n참고 견딘 시간들이\n빛을 발하는 순간입니다.\n그래도... 슬슬 이직도 생각해볼 때가 됐습니다."
+  }
+};
+
+// ─────────────────────────────────────────────
+//  UTILS
+// ─────────────────────────────────────────────
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+function weightedRandom(arr) {
+  const pool = arr.flatMap(e => Array(e.weight).fill(e));
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function pickEvent() {
+  // 20개 다 써도 리셋
+  if (usedEventIds.length >= events.length) usedEventIds = [];
+  const available = events.filter(e => !usedEventIds.includes(e.id));
+  const picked = weightedRandom(available);
+  usedEventIds.push(picked.id);
+  return picked;
+}
+
+function showToast(msg, duration = 2000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+// 스탯 변화 플로팅 숫자
+function spawnFloat(el, val, color) {
+  const rect = el.getBoundingClientRect();
+  const div = document.createElement('div');
+  div.className = 'float-num';
+  div.textContent = (val > 0 ? '+' : '') + val;
+  div.style.color = color;
+  div.style.left = (rect.left + rect.width / 2 - 15) + 'px';
+  div.style.top  = (rect.top - 5) + 'px';
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 1200);
+}
+
+// ─────────────────────────────────────────────
+//  GAUGE RENDERING
+// ─────────────────────────────────────────────
+function stressToAngle(s) {
+  return (s / 100) * 180 - 90; // -90~+90 deg (needle rotation from top)
+}
+
+// SVG 호 path for gauge fill
+function describeArc(cx, cy, r, startAngle, endAngle) {
+  const toRad = d => (d * Math.PI) / 180;
+  const x1 = cx + r * Math.cos(toRad(startAngle));
+  const y1 = cy + r * Math.sin(toRad(startAngle));
+  const x2 = cx + r * Math.cos(toRad(endAngle));
+  const y2 = cy + r * Math.sin(toRad(endAngle));
+  const large = endAngle - startAngle > 180 ? 1 : 0;
+  return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`;
+}
+
+function updateGauge(s) {
+  const pct = clamp(s, 0, 100);
+
+  // SVG 좌표계: 180°=(20,120) 왼쪽, 270°=(120,20) 위쪽, 360°=(220,120) 오른쪽
+  // sweep=1(시계방향)으로 왼쪽 → 위쪽 → 오른쪽 순서로 채워짐
+  const startDeg = 180; // (20,120) 왼쪽 고정
+  const endDeg   = 180 + (pct / 100) * 180; // 0% → 180°, 100% → 360°
+
+  const arc = document.getElementById('gauge-arc');
+  if (pct === 0) {
+    arc.setAttribute('d', 'M 20 120 A 100 100 0 0 1 20.001 120');
+  } else {
+    arc.setAttribute('d', describeArc(120, 120, 100, startDeg, endDeg));
+  }
+
+  // Needle: at 0 stress => pointing left (-90 from vertical == rotate(-90deg))
+  // at 100 stress => pointing right (+90 from vertical == rotate(+90deg))
+  const needleDeg = (pct / 100) * 180 - 90;
+  const needle = document.getElementById('gauge-needle');
+  needle.style.transform = `rotate(${needleDeg}deg)`;
+
+  // Angle text
+  const angleDeg = Math.round((pct / 100) * 180);
+  const angleEl = document.getElementById('gauge-angle-text');
+  let label, color;
+  if (pct <= 40)       { label = '여유로움'; color = '#00b894'; }
+  else if (pct <= 70)  { label = '주의 필요'; color = '#fdcb6e'; }
+  else if (pct <= 90)  { label = '위험 수위'; color = '#e17055'; }
+  else                 { label = '퇴사 직전!!!'; color = '#e94560'; }
+
+  angleEl.textContent = `${angleDeg}° — ${label}`;
+  angleEl.style.color = color;
+
+  // danger glow
+  const gaugeSection = document.getElementById('gauge-section');
+  if (pct > 90) gaugeSection.classList.add('stress-danger');
+  else          gaugeSection.classList.remove('stress-danger');
+}
+
+// ─────────────────────────────────────────────
+//  STAT BARS
+// ─────────────────────────────────────────────
+function updateStatBars(animated = true) {
+  const s = state;
+
+  const setBar = (id, val, min, max) => {
+    const pct = ((val - min) / (max - min)) * 100;
+    const fill = document.getElementById('fill-' + id);
+    const valEl = document.getElementById('val-' + id);
+    if (!animated) fill.style.transition = 'none';
+    else fill.style.transition = 'width 0.6s cubic-bezier(0.34,1.56,0.64,1)';
+    fill.style.width = clamp(pct, 0, 100) + '%';
+    valEl.textContent = val;
+  };
+
+  setBar('stress',     s.stress,     0, 100);
+  setBar('sanity',     s.sanity,     0, 100);
+  setBar('reputation', s.reputation, 0, 100);
+}
+
+function updateHeader() {
+  document.getElementById('week-display').textContent = `${state.day}일차`;
+  document.getElementById('money-display').textContent = `💰 ${state.money}만원`;
+  document.getElementById('week-progress-fill').style.width = (state.day / 30 * 100) + '%';
+}
+
+// ─────────────────────────────────────────────
+//  CHARACTER SYSTEM
+// ─────────────────────────────────────────────
+let currentCharStage = 'CALM';
+let speechTimer = null;
+
+function updateCharacter(stress) {
+  const svg = document.getElementById('character-svg');
+
+  let stage;
+  if      (stress <= 30) stage = 'CALM';
+  else if (stress <= 60) stage = 'TIRED';
+  else if (stress <= 80) stage = 'STRESSED';
+  else                   stage = 'DESPERATE';
+
+  if (stage === currentCharStage) return;
+  currentCharStage = stage;
+
+  // 표정 전환
+  ['calm','tired','stressed','desperate'].forEach(f => {
+    const el = document.getElementById('face-' + f);
+    if (el) el.setAttribute('display', f === stage.toLowerCase() ? 'inline' : 'none');
+  });
+
+  // 흑백 오버레이 (DESPERATE)
+  const grayOverlay = document.getElementById('gray-overlay');
+  if (grayOverlay) {
+    grayOverlay.setAttribute('opacity', stage === 'DESPERATE' ? '0.55' : '0');
+    // mix-blend-mode 효과 대신 filter 직접 적용
+    if (stage === 'DESPERATE') {
+      svg.style.filter = 'saturate(0.15) brightness(0.85)';
+    } else {
+      svg.style.filter = '';
+    }
+  }
+
+  // DESPERATE 흔들림 애니메이션
+  svg.classList.remove('desperate-shake');
+  if (stage === 'DESPERATE') {
+    void svg.offsetWidth; // reflow
+    svg.classList.add('desperate-shake');
+  }
+}
+
+function triggerCharRecoil() {
+  const svg = document.getElementById('character-svg');
+  svg.classList.remove('recoil','jump');
+  void svg.offsetWidth;
+  svg.classList.add('recoil');
+  svg.addEventListener('animationend', () => svg.classList.remove('recoil'), { once: true });
+}
+
+function triggerCharJump() {
+  const svg = document.getElementById('character-svg');
+  svg.classList.remove('recoil','jump');
+  void svg.offsetWidth;
+  svg.classList.add('jump');
+  svg.addEventListener('animationend', () => svg.classList.remove('jump'), { once: true });
+}
+
+function showSpeechBubble(text) {
+  const bubble = document.getElementById('speech-bubble');
+  if (!bubble) return;
+  const shortened = text.length > 20 ? text.slice(0, 19) + '…' : text;
+  bubble.textContent = shortened;
+  bubble.classList.add('visible');
+  if (speechTimer) clearTimeout(speechTimer);
+  speechTimer = setTimeout(() => bubble.classList.remove('visible'), 2200);
+}
+
+// ─────────────────────────────────────────────
+//  APPLY STATS CHANGE
+// ─────────────────────────────────────────────
+function applyChoice(choice) {
+  const deltas = { stress: choice.stress, sanity: choice.sanity, money: choice.money, reputation: choice.reputation };
+
+  // spawn floats
+  const positions = [
+    { key: 'stress', el: document.getElementById('bar-stress'), posColor: '#e94560', negColor: '#00b894' },
+    { key: 'sanity', el: document.getElementById('bar-sanity'), posColor: '#a29bfe', negColor: '#e17055' },
+    { key: 'reputation', el: document.getElementById('bar-reputation'), posColor: '#74b9ff', negColor: '#e17055' },
+    { key: 'money', el: document.getElementById('money-display'), posColor: '#55efc4', negColor: '#e17055' }
+  ];
+
+  positions.forEach(p => {
+    const v = deltas[p.key];
+    if (v !== 0) {
+      const color = v > 0 ? p.posColor : p.negColor;
+      spawnFloat(p.el, v, color);
+    }
+  });
+
+  // apply
+  state.stress     = clamp(state.stress     + (choice.stress     || 0), 0, 100);
+  state.sanity     = clamp(state.sanity     + (choice.sanity     || 0), 0, 100);
+  state.money      = clamp(state.money      + (choice.money      || 0), -999, 9999);
+  state.reputation = clamp(state.reputation + (choice.reputation || 0), 0, 100);
+
+  updateStatBars();
+  updateGauge(state.stress);
+  updateHeader();
+  updateCharacter(state.stress);
+
+  // 캐릭터 반응 애니메이션
+  const stressNet = choice.stress || 0;
+  if (stressNet > 0) {
+    triggerCharRecoil();
+  } else if (stressNet < 0) {
+    triggerCharJump();
+  }
+
+  // 말풍선 (결과 텍스트 축약)
+  if (choice.result) {
+    showSpeechBubble(choice.result);
+  }
+}
+
+// ─────────────────────────────────────────────
+//  PAYDAY
+// ─────────────────────────────────────────────
+function triggerPayday() {
+  paydayThisTurn = true;
+  state.money  += 500;
+  state.stress  = clamp(state.stress - 15, 0, 100);
+  updateStatBars();
+  updateGauge(state.stress);
+  updateHeader();
+
+  spawnFloat(document.getElementById('money-display'), 500, '#55efc4');
+
+  const banner = document.getElementById('payday-banner');
+  banner.style.display = 'block';
+  setTimeout(() => { banner.style.display = 'none'; }, 3000);
+}
+
+// ─────────────────────────────────────────────
+//  ENDING CHECK
+// ─────────────────────────────────────────────
+function checkEnding() {
+  if (state.stress >= 100)  return 'INSTANT';
+  if (state.sanity  <= 0)   return 'BURNOUT';
+  if (state.day    >  30) {
+    if (state.reputation >= 65 && state.stress < 60)  return 'PROMOTION';
+    if (state.money      >= 500 && state.stress < 70) return 'PLANNED';
+    return 'SURVIVE';
+  }
+  return null;
+}
+
+// ─────────────────────────────────────────────
+//  LOAD EVENT CARD
+// ─────────────────────────────────────────────
+function loadEvent(ev) {
+  currentEvent = ev;
+  choiceMade = false;
+
+  const card = document.getElementById('event-card');
+  const catEl = document.getElementById('event-cat');
+  const titleEl = document.getElementById('event-title');
+  const textEl  = document.getElementById('event-text');
+  const btnA = document.getElementById('btn-a');
+  const btnB = document.getElementById('btn-b');
+  const resultCard = document.getElementById('result-card');
+  const nextBtn = document.getElementById('next-btn');
+
+  // reset result
+  resultCard.classList.remove('show', 'visible');
+  resultCard.style.display = 'none';
+  nextBtn.style.display = 'none';
+  document.getElementById('choices-section').style.display = 'flex';
+
+  // fade in
+  card.classList.remove('fade-out');
+  card.style.opacity = '0';
+  card.style.transform = 'translateY(12px)';
+
+  const catKey = ev.category || 'WORK';
+  catEl.textContent = catNames[catKey] || catKey;
+  catEl.className = 'category-badge cat-' + catKey;
+  titleEl.textContent = ev.title;
+  textEl.textContent  = ev.text;
+
+  btnA.textContent = ev.choices[0].label;
+  btnB.textContent = ev.choices[1].label;
+  btnA.disabled = false;
+  btnB.disabled = false;
+
+  requestAnimationFrame(() => {
+    card.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+    card.style.opacity = '1';
+    card.style.transform = 'translateY(0)';
+  });
+}
+
+// ─────────────────────────────────────────────
+//  CHOOSE
+// ─────────────────────────────────────────────
+function choose(idx) {
+  if (choiceMade || !currentEvent) return;
+  choiceMade = true;
+
+  const choice = currentEvent.choices[idx];
+
+  // disable buttons
+  document.getElementById('btn-a').disabled = true;
+  document.getElementById('btn-b').disabled = true;
+
+  // apply stats
+  applyChoice(choice);
+
+  // show result
+  setTimeout(() => {
+    const resultCard = document.getElementById('result-card');
+    resultCard.style.display = 'block';
+    resultCard.textContent = choice.result;
+    requestAnimationFrame(() => {
+      resultCard.classList.add('show');
+      requestAnimationFrame(() => resultCard.classList.add('visible'));
+    });
+
+    // scroll to result
+    setTimeout(() => {
+      document.getElementById('main').scrollTo({ top: 9999, behavior: 'smooth' });
+    }, 200);
+
+    // check ending immediately
+    const endingKey = checkEnding();
+    if (endingKey) {
+      setTimeout(() => showEnding(endingKey), 1200);
+      return;
+    }
+
+    // show next turn button
+    setTimeout(() => {
+      document.getElementById('choices-section').style.display = 'none';
+      const nb = document.getElementById('next-btn');
+      nb.style.display = 'block';
+      nb.textContent = state.day >= 30 ? '결과 확인 →' : `${state.day + 1}일차로 →`;
+    }, 600);
+  }, 400);
+}
+
+// ─────────────────────────────────────────────
+//  NEXT TURN
+// ─────────────────────────────────────────────
+function nextTurn() {
+  state.day++;
+  paydayThisTurn = false;
+
+  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('choices-section').style.display = 'flex';
+
+  // 월급날: 25일차
+  if (state.day === 25) {
+    triggerPayday();
+    setTimeout(() => {
+      const endingKey = checkEnding();
+      if (endingKey) { showEnding(endingKey); return; }
+      loadEvent(pickEvent());
+      updateHeader();
+    }, 500);
+  } else {
+    const endingKey = checkEnding();
+    if (endingKey) { showEnding(endingKey); return; }
+    loadEvent(pickEvent());
+    updateHeader();
+  }
+
+  // scroll to top
+  document.getElementById('main').scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ─────────────────────────────────────────────
+//  ENDING
+// ─────────────────────────────────────────────
+function showEnding(key) {
+  const data = endings[key];
+  const screen = document.getElementById('ending-screen');
+
+  screen.className = 'show ' + data.color;
+  document.getElementById('ending-icon').textContent  = data.icon;
+  document.getElementById('ending-type').textContent  = data.type;
+  document.getElementById('ending-title').textContent = data.title;
+  document.getElementById('ending-text').textContent  = data.text;
+
+  document.getElementById('end-stress').textContent = Math.round((state.stress / 100) * 180) + '°';
+  document.getElementById('end-week').textContent   = (state.day - 1) + '일';
+  document.getElementById('end-money').textContent  = state.money + '만';
+
+  state.gameOver = true;
+  state.endingKey = key;
+
+  // 화면 효과
+  if (key === 'INSTANT') {
+    document.getElementById('app').classList.add('shaking');
+    setTimeout(() => document.getElementById('app').classList.remove('shaking'), 1600);
+  }
+  if (key === 'BURNOUT') {
+    document.getElementById('app').classList.add('burning-out');
+  }
+  if (key === 'PROMOTION') {
+    startParticles();
+  }
+}
+
+// ─────────────────────────────────────────────
+//  PARTICLES (승진 엔딩)
+// ─────────────────────────────────────────────
+let particleAnimId = null;
+function startParticles() {
+  const canvas = document.getElementById('particle-canvas');
+  canvas.style.display = 'block';
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  const particles = [];
+
+  for (let i = 0; i < 120; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height - canvas.height,
+      vx: (Math.random() - 0.5) * 2,
+      vy: Math.random() * 3 + 1,
+      r: Math.random() * 6 + 2,
+      color: `hsl(${40 + Math.random() * 30}, 100%, ${55 + Math.random() * 20}%)`,
+      rot: Math.random() * 360,
+      rotV: (Math.random() - 0.5) * 6
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot * Math.PI / 180);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.r, -p.r * 0.5, p.r * 2, p.r);
+      ctx.restore();
+      p.x  += p.vx;
+      p.y  += p.vy;
+      p.rot += p.rotV;
+      if (p.y > canvas.height) {
+        p.y = -10;
+        p.x = Math.random() * canvas.width;
+      }
+    });
+    particleAnimId = requestAnimationFrame(draw);
+  }
+  draw();
+
+  setTimeout(() => {
+    cancelAnimationFrame(particleAnimId);
+    canvas.style.display = 'none';
+  }, 6000);
+}
+
+// ─────────────────────────────────────────────
+//  SHARE
+// ─────────────────────────────────────────────
+function shareResult() {
+  const endingKey = state.endingKey || 'SURVIVE';
+
+  const endingNames = {
+    INSTANT: '즉시 퇴사', BURNOUT: '번아웃', PLANNED: '계획 퇴사',
+    SURVIVE: '생존', PROMOTION: '대리 승진'
+  };
+
+  const angle = Math.round((state.stress / 100) * 180);
+  const day   = Math.max(1, state.day - 1);
+  const text  =
+    `나의 퇴사각도기: ${angle}° 🎯\n` +
+    `${day}일 버티다 ${endingNames[endingKey] || '생존'}으로 끝났습니다.\n` +
+    `직장인이라면 공감 100%\n` +
+    `#퇴사시뮬레이터 #퇴사각도기 #직장인공감`;
+
+  if (navigator.share) {
+    navigator.share({ title: '퇴사 시뮬레이터', text }).catch(() => {});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => showToast('클립보드에 복사됐습니다! 📋'));
+  } else {
+    // fallback: textarea
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;top:-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    showToast('클립보드에 복사됐습니다! 📋');
+  }
+}
+
+// ─────────────────────────────────────────────
+//  RETRY
+// ─────────────────────────────────────────────
+function retryGame() {
+  // stop particles
+  if (particleAnimId) { cancelAnimationFrame(particleAnimId); particleAnimId = null; }
+  document.getElementById('particle-canvas').style.display = 'none';
+  document.getElementById('app').classList.remove('shaking', 'burning-out');
+  document.getElementById('ending-screen').className = '';
+  document.getElementById('ending-screen').style.display = 'none';
+
+  state = { stress: 0, money: 0, sanity: 80, reputation: 50, day: 1, gameOver: false, endingKey: null };
+  usedEventIds = [];
+  paydayThisTurn = false;
+  currentCharStage = 'CALM';
+
+  // 캐릭터 초기화
+  ['calm','tired','stressed','desperate'].forEach(f => {
+    const el = document.getElementById('face-' + f);
+    if (el) el.setAttribute('display', f === 'calm' ? 'inline' : 'none');
+  });
+  const charSvg = document.getElementById('character-svg');
+  if (charSvg) { charSvg.style.filter = ''; charSvg.classList.remove('desperate-shake','recoil','jump'); }
+  const bubble = document.getElementById('speech-bubble');
+  if (bubble) bubble.classList.remove('visible');
+
+  updateHeader();
+  updateStatBars(false);
+  updateGauge(0);
+
+  document.getElementById('choices-section').style.display = 'flex';
+  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('result-card').classList.remove('show','visible');
+  document.getElementById('result-card').style.display = 'none';
+  document.getElementById('payday-banner').style.display = 'none';
+  document.getElementById('main').scrollTo({ top: 0, behavior: 'instant' });
+
+  loadEvent(pickEvent());
+}
+
+// ─────────────────────────────────────────────
+//  START GAME
+// ─────────────────────────────────────────────
+function startGame() {
+  const startScreen = document.getElementById('start-screen');
+  startScreen.style.transition = 'opacity 0.5s ease';
+  startScreen.style.opacity = '0';
+  setTimeout(() => { startScreen.style.display = 'none'; }, 500);
+
+  updateHeader();
+  updateStatBars(false);
+  updateGauge(0);
+  updateCharacter(0);
+  loadEvent(pickEvent());
+}
+
+// ─────────────────────────────────────────────
+//  INIT GAUGE TICKS
+// ─────────────────────────────────────────────
+(function initTicks() {
+  const svg = document.getElementById('gauge-svg');
+  const g = document.getElementById('ticks');
+  const cx = 120, cy = 120, r = 100;
+  for (let i = 0; i <= 18; i++) {
+    const angle = Math.PI - (i / 18) * Math.PI; // 180deg to 0deg
+    const x1 = cx + r * Math.cos(angle);
+    const y1 = cy + r * Math.sin(angle);
+    const x2 = cx + (r - 6) * Math.cos(angle);
+    const y2 = cy + (r - 6) * Math.sin(angle);
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+    line.setAttribute('stroke', i % 3 === 0 ? '#4a4a6e' : '#2a2a4e');
+    line.setAttribute('stroke-width', i % 3 === 0 ? '2' : '1');
+    g.appendChild(line);
+  }
+})();
+</script>
+</body>
+</html>
